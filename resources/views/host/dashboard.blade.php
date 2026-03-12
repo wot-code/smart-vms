@@ -9,27 +9,31 @@
     <style>
         .animate-pulse { animation: pulse 2s infinite; }
         @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
-        .sidebar { height: 100vh; background: #212529; color: white; padding-top: 20px; }
-        .nav-link { color: #adb5bd; }
-        .nav-link:hover { color: white; }
         .stat-card { transition: transform 0.2s; border: none; }
         .stat-card:hover { transform: translateY(-3px); }
+        .navbar-brand { fw-bold; letter-spacing: 1px; }
     </style>
 </head>
 <body class="bg-light">
+    {{-- Top Navigation --}}
     <nav class="navbar navbar-dark bg-dark px-4 shadow">
-        <span class="navbar-brand">Smart VMS | {{ auth()->user()->role == 'admin' ? 'Administrator' : 'Host Portal' }}</span>
+        <span class="navbar-brand">
+            <i class="bi bi-shield-check me-2"></i>Smart VMS | {{ auth()->user()->role == 'admin' ? 'Administrator' : 'Host Portal' }}
+        </span>
         <div class="d-flex align-items-center text-white">
-            <span class="me-3">Welcome, {{ auth()->user()->name }}</span>
+            <span class="me-3 d-none d-md-inline">Welcome, <strong>{{ auth()->user()->name }}</strong></span>
             <form action="{{ route('logout') }}" method="POST">
                 @csrf
-                <button class="btn btn-outline-light btn-sm">Logout</button>
+                <button class="btn btn-outline-light btn-sm">
+                    <i class="bi bi-box-arrow-right me-1"></i> Logout
+                </button>
             </form>
         </div>
     </nav>
 
     <div class="container-fluid mt-4">
-        {{-- Admin Stats & Analytics Section --}}
+        
+        {{-- SECTION 1: Admin-Only Stats & Management --}}
         @if(auth()->user()->role === 'admin' && isset($stats))
         <div class="row mb-4 g-3">
             <div class="col-md-2">
@@ -57,7 +61,6 @@
                 </div>
             </div>
             
-            {{-- New Analytics Quick-Link Card --}}
             <div class="col-md-3">
                 <div class="card stat-card shadow-sm bg-info text-white">
                     <a href="{{ route('admin.analytics') }}" class="text-decoration-none text-white">
@@ -73,25 +76,36 @@
             </div>
 
             <div class="col-md-3">
-                 <a href="{{ route('admin.host.create') }}" class="btn btn-dark w-100 py-3 shadow-sm d-flex align-items-center justify-content-center h-100">
+                 <a href="{{ route('admin.create_host') }}" class="btn btn-dark w-100 py-3 shadow-sm d-flex align-items-center justify-content-center h-100">
                     <i class="bi bi-person-plus-fill me-2"></i> Add New Host/Staff
                  </a>
             </div>
         </div>
         @endif
 
-        <div class="card shadow-sm border-0">
+        {{-- SECTION 2: Visitor Records Table --}}
+        <div class="card shadow-sm border-0 rounded-3">
             <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
-                <h5 class="mb-0 fw-bold text-dark">{{ $viewTitle }}</h5>
-                <span class="badge bg-secondary rounded-pill px-3">{{ $visitors->count() }} Records Found</span>
+                <h5 class="mb-0 fw-bold text-dark">
+                    <i class="bi bi-people me-2"></i>{{ $viewTitle }}
+                </h5>
+                <span class="badge bg-secondary rounded-pill px-3">
+                    {{ $visitors->total() }} Records Total
+                </span>
             </div>
             <div class="card-body">
+                {{-- Flash Messages --}}
                 @if(session('success'))
-                    <div class="alert alert-success border-0 shadow-sm">{{ session('success') }}</div>
+                    <div class="alert alert-success border-0 shadow-sm alert-dismissible fade show">
+                        {{ session('success') }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
                 @endif
                 
                 @if($errors->any())
-                    <div class="alert alert-danger border-0 shadow-sm">{{ $errors->first() }}</div>
+                    <div class="alert alert-danger border-0 shadow-sm">
+                        {{ $errors->first() }}
+                    </div>
                 @endif
 
                 <div class="table-responsive">
@@ -106,18 +120,24 @@
                             </tr>
                         </thead>
                         <tbody>
-                            @foreach($visitors as $v)
+                            @forelse($visitors as $v)
                             <tr>
                                 <td>
                                     <div class="fw-bold text-dark">{{ $v->full_name }}</div>
-                                    <small class="text-muted">{{ $v->phone }}</small>
+                                    <small class="text-muted"><i class="bi bi-telephone me-1"></i>{{ $v->phone }}</small>
                                 </td>
-                                <td><span class="text-muted">{{ $v->host_name }}</span></td>
+                                <td>
+                                    <span class="text-muted">
+                                        <i class="bi bi-house-door me-1"></i>{{ $v->host_name }}
+                                    </span>
+                                </td>
                                 <td>
                                     @if($v->status == 'Pending')
                                         <span class="badge bg-warning text-dark animate-pulse px-3 py-2">PENDING</span>
                                     @elseif($v->status == 'Approved')
-                                        <span class="badge bg-success px-3 py-2">APPROVED</span>
+                                        <span class="badge bg-info px-3 py-2 text-white">APPROVED</span>
+                                    @elseif($v->status == 'Inside')
+                                        <span class="badge bg-success px-3 py-2">INSIDE</span>
                                     @elseif($v->status == 'Rejected')
                                         <span class="badge bg-danger px-3 py-2">REJECTED</span>
                                     @else
@@ -125,40 +145,64 @@
                                     @endif
                                 </td>
                                 <td>
-                                    <a href="{{ route('visitor.show', $v->id) }}" class="btn btn-sm btn-outline-primary rounded-pill">View Details</a>
+                                    <a href="{{ route('visitor.show', $v->id) }}" class="btn btn-sm btn-outline-primary rounded-pill">
+                                        <i class="bi bi-eye"></i> View
+                                    </a>
                                 </td>
                                 <td>
                                     @if($v->status == 'Pending')
                                         <div class="d-flex gap-2">
                                             <form action="{{ route('visitor.approve', $v->id) }}" method="POST">
                                                 @csrf
-                                                <button type="submit" class="btn btn-sm btn-success px-3">Approve</button>
+                                                <button type="submit" class="btn btn-sm btn-success px-3">
+                                                    <i class="bi bi-check-lg"></i> Approve
+                                                </button>
                                             </form>
                                             
                                             <form action="{{ route('visitor.reject', $v->id) }}" method="POST">
                                                 @csrf
                                                 <button type="submit" class="btn btn-sm btn-outline-danger" 
-                                                        onclick="return confirm('Deny entry to this visitor?')">Reject</button>
+                                                        onclick="return confirm('Deny entry to this visitor?')">
+                                                    <i class="bi bi-x-lg"></i> Reject
+                                                </button>
                                             </form>
                                         </div>
-                                    @elseif($v->status == 'Approved' && !$v->checked_out_at)
+                                    @elseif($v->status == 'Inside')
                                         <form action="{{ route('visitor.checkout', $v->id) }}" method="POST">
                                             @csrf
-                                            <button type="submit" class="btn btn-sm btn-dark px-4">Check Out</button>
+                                            <button type="submit" class="btn btn-sm btn-dark px-4">
+                                                <i class="bi bi-door-open"></i> Check Out
+                                            </button>
                                         </form>
                                     @elseif($v->status == 'Rejected')
                                         <span class="text-danger small fw-bold">Entry Denied</span>
                                     @else
-                                        <span class="text-muted small"><i class="bi bi-check-circle-fill text-success"></i> Completed</span>
+                                        <span class="text-muted small">
+                                            <i class="bi bi-check-circle-fill text-success"></i> Completed
+                                        </span>
                                     @endif
                                 </td>
                             </tr>
-                            @endforeach
+                            @empty
+                            <tr>
+                                <td colspan="5" class="text-center py-5 text-muted">
+                                    <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                                    No records found.
+                                </td>
+                            </tr>
+                            @endforelse
                         </tbody>
                     </table>
+                </div>
+                
+                {{-- Pagination Links --}}
+                <div class="mt-4">
+                    {{ $visitors->links() }}
                 </div>
             </div>
         </div>
     </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

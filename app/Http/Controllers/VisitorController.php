@@ -9,213 +9,311 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
 use Exception;
 use Carbon\Carbon;
-// Africa's Talking SDK
 use AfricasTalking\SDK\AfricasTalking;
 
 class VisitorController extends Controller
 {
     /**
-     * Display the dashboard with privacy-based filtering.
+     * Display the public self-registration form for visitors.
+     */
+    public function create()
+    {
+        $hosts = User::where('role', 'host')
+            ->orderBy('name', 'asc')
+            ->get()
+            ->map(function($user) {
+                return [
+                    'name' => $user->name,
+                    'display' => $user->name . " - " . ($user->department ?? 'Resident/Host')
+                ];
+            });
+        
+        return view('visitor.register', compact('hosts'));
+    }
+
+    /**
+     * Dashboard Router: Redirects users to their specific dashboard based on role.
      */
     public function index()
     {
         $user = Auth::user();
 
-        if ($user->role === 'admin') {
-            $visitors = Visitor::orderBy('created_at', 'desc')->get();
-            $viewTitle = "All System Activities (Admin)";
-            
-            $stats = [
-                'total_today' => Visitor::whereDate('created_at', Carbon::today())->count(),
-                'pending'     => Visitor::where('status', 'Pending')->count(),
-                'inside'      => Visitor::where('status', 'Approved')->count(),
-            ];
-        } else {
-            $visitors = Visitor::where('host_name', $user->name)
-                               ->orderBy('created_at', 'desc')
-                               ->get();
-            $viewTitle = "My Personal Visitors";
-            $stats = null;
+        // 1. Guard Redirect
+        if ($user->role === 'guard') {
+            return redirect()->route('guard.dashboard');
         }
 
-        return view('dashboard', compact('visitors', 'viewTitle', 'stats'));
+        // 2. Admin View: Shows Global Statistics
+        if ($user->role === 'admin') {
+            $visitors = Visitor::latest()->paginate(15);
+            $viewTitle = "Global Activity Monitor";
+            
+            // FIXED: Standardized variable names to match dashboard UI cards
+            $stats = [
+                'total_visitors'   => Visitor::count(), 
+                'pending_approval' => Visitor::where('status', 'Pending')->count(),
+                'approved_today'   => Visitor::where('status', 'Approved')
+                                            ->whereDate('updated_at', Carbon::today())
+                                            ->count(),
+                'active_hosts'     => User::where('role', 'host')->count(),
+            ];
+            
+            return view('admin.dashboard', compact('visitors', 'viewTitle', 'stats'));
+        } 
+
+        // 3. Host View: Shows Statistics specific to this Host only
+        $visitors = Visitor::where('host_name', $user->name)
+                            ->latest()
+                            ->paginate(15);
+                            
+        $viewTitle = "My Visitor Requests";
+
+        // ADDED: Stats for the Host dashboard so they aren't empty
+        $stats = [
+            'total_visitors'   => Visitor::where('host_name', $user->name)->count(),
+            'pending_approval' => Visitor::where('host_name', $user->name)->where('status', 'Pending')->count(),
+            'approved_today'   => Visitor::where('host_name', $user->name)
+                                        ->where('status', 'Approved')
+                                        ->whereDate('updated_at', Carbon::today())
+                                        ->count(),
+            'active_hosts'     => null, // Hosts don't need to see global host counts
+        ];
+
+        return view('host.dashboard', compact('visitors', 'viewTitle', 'stats'));
     }
 
     /**
-     * View specific visitor pass
-     */
-    public function showPass($id)
-    {
-        $visitor = Visitor::findOrFail($id);
-        return view('registration_success', compact('visitor'));
-    } 
-    
-    /**
-     * View detailed visitor profile with security check
+     * Show visitor details with a strict security check.
      */
     public function show($id)
     {
         $visitor = Visitor::findOrFail($id);
+        $user = Auth::user();
 
-        if (Auth::user()->role !== 'admin' && $visitor->host_name !== Auth::user()->name) {
-            abort(403, 'Unauthorized access to visitor details.');
+        // Security: Only Admins, Guards, or the assigned Host can view details
+        $isHost = strtolower($visitor->host_name) === strtolower($user->name);
+
+        if ($user->role !== 'admin' && $user->role !== 'guard' && !$isHost) {
+            abort(403, 'Unauthorized access to this visitor record.');
         }
 
         return view('admin.visitor_details', compact('visitor'));
     }
 
-    /**
-     * Show the registration form.
-     */
-    public function create()
+    /*
+    |--------------------------------------------------------------------------
+    | GUARD DASHBOARD LOGIC
+    |--------------------------------------------------------------------------
+    */
+
+    public function guardDashboard(Request $request)
     {
-        $hosts = User::where('role', 'host')
-                     ->orderBy('name', 'asc')
-                     ->get(); 
-        
-        return view('register_visitor', compact('hosts'));
+        $search = $request->input('search');
+
+        $expected = Visitor::where('status', 'Approved')
+            ->whereNull('checked_in_at')
+            ->when($search, function($query) use ($search) {
+                return $query->where('full_name', 'LIKE', "%{$search}%")
+                             ->orWhere('id_number', 'LIKE', "%{$search}%");
+            })->get();
+
+        $inside = Visitor::where('status', 'Inside')
+            ->when($search, function($query) use ($search) {
+                return $query->where('full_name', 'LIKE', "%{$search}%");
+            })->get();
+
+        return view('guard.dashboard', compact('expected', 'inside'));
     }
 
-    /**
-     * Store the visitor registration data.
-     * FIXED: Prevents duplication using updateOrCreate logic.
-     */
+    public function processCheckIn($id)
+    {
+        $visitor = Visitor::findOrFail($id);
+        $visitor->update([
+            'checked_in_at' => Carbon::now(),
+            'status' => 'Inside'
+        ]);
+
+        return back()->with('success', "{$visitor->full_name} has been cleared for entry.");
+    }
+
+    public function processCheckOut($id)
+    {
+        $visitor = Visitor::findOrFail($id);
+        $visitor->update([
+            'checked_out_at' => Carbon::now(),
+            'status' => 'Checked Out'
+        ]);
+
+        $this->notifyHostCheckout($visitor);
+
+        return back()->with('success', "{$visitor->full_name} has checked out.");
+    }
+
+    public function guardCreate()
+    {
+        $hosts = User::where('role', 'host')->orderBy('name', 'asc')->get();
+        return view('guard.register_visitor', compact('hosts'));
+    }
+
+    public function guardStore(Request $request)
+    {
+        $validated = $request->validate([
+            'full_name' => 'required|string|max:255',
+            'phone'     => 'nullable|string',
+            'host_name' => 'required|string',
+            'purpose'   => 'required|string',
+            'id_number' => 'nullable|string',
+        ]);
+
+        $visitor = Visitor::create([
+            'full_name'     => $validated['full_name'],
+            'phone'         => $this->formatPhone($validated['phone'] ?? '0000000000'),
+            'host_name'     => $validated['host_name'],
+            'purpose'       => $validated['purpose'],
+            'id_number'     => $validated['id_number'],
+            'status'        => 'Inside',
+            'checked_in_at' => Carbon::now(),
+        ]);
+
+        return redirect()->route('guard.dashboard')->with('success', 'Visitor registered and checked in.');
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | ACTIONS (Approve/Reject)
+    |--------------------------------------------------------------------------
+    */
+
+    public function approve($id)
+    {
+        $visitor = Visitor::findOrFail($id);
+        
+        if (Auth::user()->role !== 'admin' && strtolower($visitor->host_name) !== strtolower(Auth::user()->name)) {
+            abort(403);
+        }
+
+        $visitor->update(['status' => 'Approved']);
+        
+        $badgeUrl = route('visitor.pass', ['id' => $visitor->id]);
+        $this->notifyVisitor($visitor, "Approved! Show your digital badge at the gate: " . $badgeUrl);
+
+        return back()->with('success', "Visitor approved.");
+    }
+
+    public function reject($id)
+    {
+        $visitor = Visitor::findOrFail($id);
+        
+        if (Auth::user()->role !== 'admin' && strtolower($visitor->host_name) !== strtolower(Auth::user()->name)) {
+            abort(403);
+        }
+
+        $visitor->update(['status' => 'Rejected']);
+        $this->notifyVisitor($visitor, "Visit rejected by host.");
+
+        return back()->with('success', "Visitor rejected.");
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | PUBLIC REGISTRATION
+    |--------------------------------------------------------------------------
+    */
+
     public function store(Request $request)
     {
         $validated = $request->validate([
             'full_name'      => 'required|string|max:255',
-            'phone'          => 'required|string|max:15',
-            'type'           => 'required|in:Adult,Minor,Delivery,Contractor',
+            'phone'          => ['required', 'string', 'regex:/^(?:254|\+254|0)?(7|1)(?:[0-9]){8}$/'],
+            'type'           => 'required|in:Adult,Minor',
             'host_name'      => 'required|string|max:255',
             'purpose'        => 'required|string',
-            'guardian_name'  => 'required_if:type,Minor|nullable|string|max:255',
+            'purpose_other'  => 'required_if:purpose,Other|nullable|string',
+            'accompanied'    => 'required_if:type,Minor|nullable',
             'id_number'      => 'required|string|max:50',
             'vehicle_reg'    => 'nullable|string|max:20',
             'signature_data' => 'required|string',
+            'time_in'        => 'nullable',
         ]);
 
         try {
-            // Normalize phone number
-            $phone = preg_replace('/[^0-9]/', '', $validated['phone']);
-            if (str_starts_with($phone, '0')) {
-                $phone = '+254' . substr($phone, 1);
-            } elseif (!str_starts_with($phone, '+')) {
-                $phone = '+254' . $phone; 
-            }
+            $phone = $this->formatPhone($validated['phone']);
+            $finalPurpose = ($validated['purpose'] === 'Other') ? $validated['purpose_other'] : $validated['purpose'];
 
-            /**
-             * FIX: Duplication Prevention
-             * If an ID Number already has a 'Pending' request, update it.
-             * Otherwise, create a new one.
-             */
             $visitor = Visitor::updateOrCreate(
-                [
-                    'id_number' => $validated['id_number'],
-                    'status'    => 'Pending'
-                ],
+                ['id_number' => $validated['id_number'], 'status' => 'Pending'],
                 [
                     'full_name'     => $validated['full_name'],
                     'phone'         => $phone,
                     'type'          => $validated['type'],
-                    'guardian_name' => $validated['guardian_name'] ?? null,
+                    'guardian_name' => $request->has('accompanied') ? 'Accompanied by Guardian' : null,
                     'host_name'     => $validated['host_name'],
-                    'purpose'       => $validated['purpose'],
+                    'purpose'       => $finalPurpose,
                     'vehicle_reg'   => $validated['vehicle_reg'],
-                    'signature'     => $validated['signature_data'], 
-                    'check_in'      => Carbon::now(), 
+                    'signature'     => $validated['signature_data'],
+                    'check_in'      => $validated['time_in'] ?? Carbon::now()->format('H:i'),
                 ]
             );
 
-            // Notify host only if this is a fresh registration (prevents spam on refresh)
             if ($visitor->wasRecentlyCreated) {
                 $this->notifyHost($visitor);
             }
 
-            // IMPORTANT: Redirect to showPass instead of returning view directly
-            // This prevents form re-submission if the user hits "Refresh"
-            return redirect()->route('visitor.pass', ['id' => $visitor->id]);
+            return redirect()->route('visitor.pass', ['id' => $visitor->id])
+                             ->with('success', 'Request sent to host. Awaiting approval.');
 
         } catch (Exception $e) {
             Log::error("Registration failed: " . $e->getMessage());
-            return back()->withInput()->withErrors('Something went wrong: ' . $e->getMessage());
+            return back()->withInput()->withErrors('Error: ' . $e->getMessage());
         }
     }
 
-    /**
-     * Approve visitor
-     */
-    public function approve($id)
+    public function showPass($id)
     {
-        try {
-            $visitor = Visitor::findOrFail($id);
-            
-            if (Auth::user()->role !== 'admin' && $visitor->host_name !== Auth::user()->name) {
-                return back()->withErrors('Unauthorized action.');
-            }
-
-            $visitor->update(['status' => 'Approved']);
-            $this->notifyVisitor($visitor, "Approved! You are cleared to enter. Please proceed.");
-
-            return back()->with('success', "Visitor {$visitor->full_name} has been approved.");
-        } catch (Exception $e) {
-            return back()->withErrors('Approval failed: ' . $e->getMessage());
-        }
+        $visitor = Visitor::findOrFail($id);
+        return view('registration_success', compact('visitor'));
     }
 
-    /**
-     * Reject visitor
-     */
-    public function reject($id)
-    {
-        try {
-            $visitor = Visitor::findOrFail($id);
-            
-            if (Auth::user()->role !== 'admin' && $visitor->host_name !== Auth::user()->name) {
-                return back()->withErrors('Unauthorized action.');
-            }
-
-            $visitor->update(['status' => 'Rejected']);
-            $this->notifyVisitor($visitor, "Entry Denied. Your request to see {$visitor->host_name} was declined.");
-
-            return back()->with('success', "Visitor {$visitor->full_name} has been rejected.");
-        } catch (Exception $e) {
-            return back()->withErrors('Rejection failed: ' . $e->getMessage());
-        }
-    }
-
-    /**
-     * Log the exit time
-     */
-    public function checkout($id)
-    {
-        try {
-            $visitor = Visitor::findOrFail($id);
-            $visitor->update([
-                'checked_out_at' => Carbon::now(), 
-                'status' => 'Checked Out'
-            ]);
-
-            return back()->with('success', "{$visitor->full_name} has been checked out.");
-        } catch (Exception $e) {
-            return back()->withErrors('Checkout failed: ' . $e->getMessage());
-        }
-    }
+    /*
+    |--------------------------------------------------------------------------
+    | NOTIFICATIONS (SMS)
+    |--------------------------------------------------------------------------
+    */
 
     protected function notifyHost($visitor)
     {
         $host = User::where('name', $visitor->host_name)->first();
         if ($host && $host->phone) {
-            $message = "VMS Alert: {$visitor->full_name} is here to see you for '{$visitor->purpose}'. Please login to Approve/Reject.";
-            $this->sendSms($host->phone, $message);
+            $loginUrl = url('/login');
+            $msg = "VMS: {$visitor->full_name} requests entry for '{$visitor->purpose}'. Approve/Reject via dashboard: {$loginUrl}";
+            $this->sendSms($host->phone, $msg);
+        }
+    }
+
+    protected function notifyHostCheckout($visitor)
+    {
+        $host = User::where('name', $visitor->host_name)->first();
+        if ($host && $host->phone) {
+            $time = Carbon::now()->format('H:i');
+            $msg = "VMS Notify: Your visitor {$visitor->full_name} has checked out at {$time}.";
+            $this->sendSms($host->phone, $msg);
         }
     }
 
     protected function notifyVisitor($visitor, $message)
     {
-        if ($visitor->phone) {
-            $fullMessage = "Hi {$visitor->full_name}, " . $message;
-            $this->sendSms($visitor->phone, $fullMessage);
+        if ($visitor->phone && $visitor->phone !== 'N/A') {
+            $this->sendSms($visitor->phone, "Hi {$visitor->full_name}, " . $message);
         }
+    }
+
+    private function formatPhone($phone)
+    {
+        $phone = preg_replace('/[^0-9]/', '', $phone);
+        if (str_starts_with($phone, '0')) {
+            return '+254' . substr($phone, 1);
+        }
+        return str_starts_with($phone, '254') ? '+' . $phone : '+254' . $phone;
     }
 
     private function sendSms($to, $message)
@@ -223,24 +321,17 @@ class VisitorController extends Controller
         $username = env('AT_USERNAME');
         $apiKey   = env('AT_API_KEY');
 
-        if (!$username || !$apiKey) {
-            Log::warning("Africa's Talking credentials not set in .env");
-            return;
-        }
+        if (!$username || !$apiKey) return;
 
         try {
             $at = new AfricasTalking($username, $apiKey);
-            $sms = $at->sms();
-
-            $sms->send([
+            $at->sms()->send([
                 'to'      => $to, 
                 'message' => $message,
                 'from'    => env('AT_FROM', null)
             ]);
-
-            Log::info("SMS sent to {$to}");
         } catch (Exception $e) {
-            Log::error("Africa's Talking Error: " . $e->getMessage());
+            Log::error("AT Error: " . $e->getMessage());
         }
     }
 }

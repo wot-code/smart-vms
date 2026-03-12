@@ -11,7 +11,8 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        //
+        // This registers your AuditSecurityAccess middleware globally
+        $middleware->append(\App\Http\Middleware\AuditSecurityAccess::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

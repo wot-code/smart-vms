@@ -4,52 +4,66 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use App\Models\Visitor;
+use App\Models\SecurityLog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
+use Barryvdh\DomPDF\Facade\Pdf; 
 
 class AdminController extends Controller
 {
     /**
-     * Main Admin Dashboard (System Activity Log)
-     * Displays summary cards and the list of all visitors.
+     * Dashboard Traffic Controller
      */
     public function index()
     {
-        $visitors = Visitor::latest()->get();
+        $user = Auth::user();
+
+        // 1. Role-Based Redirection
+        if ($user->role === 'guard') {
+            return redirect()->route('guard.dashboard');
+        }
+
+        if ($user->role === 'host') {
+            $viewTitle = "My Visitors Portal";
+            $visitors = Visitor::where('host_name', $user->name)
+                                ->latest()
+                                ->paginate(10);
+                                
+            return view('host.dashboard', compact('visitors', 'viewTitle'));
+        }
+
+        // 2. Admin Logic: Global Analytics & Activity
+        $viewTitle = "System Activity Log";
+        $visitors = Visitor::latest()->paginate(15);
         
-        // Summary data for the top dashboard cards
-        // 'inside' counts visitors who are Approved but haven't checked out yet
         $stats = [
-            'total_today' => Visitor::whereDate('created_at', Carbon::today())->count(),
-            'pending'     => Visitor::where('status', 'Pending')->count(),
-            'inside'      => Visitor::where('status', 'Approved')
-                                    ->whereNull('checked_out_at')
-                                    ->count(),
+            'total_today'    => Visitor::whereDate('created_at', Carbon::today())->count(),
+            'total_visitors' => Visitor::count(),
+            'pending'        => Visitor::whereIn('status', ['Pending', 'pending'])->count(),
+            'inside'         => Visitor::whereIn('status', ['Approved', 'approved', 'Inside', 'Checked In', 'checked-in'])
+                                        ->whereNull('checked_out_at')
+                                        ->count(),
         ];
 
-        $viewTitle = "System Activity Log";
-
-        return view('dashboard', compact('visitors', 'stats', 'viewTitle'));
+        return view('admin.dashboard', compact('visitors', 'stats', 'viewTitle'));
     }
 
     /**
-     * Display Detailed Analytics: Charts, Traffic Trends, and Categories.
+     * Detailed Analytics & Traffic Charts
      */
     public function analytics()
     {
-        // 1. Summary Statistics for Analytics Cards
         $stats = [
             'total_visitors' => Visitor::count(),
             'today_count'    => Visitor::whereDate('created_at', Carbon::today())->count(),
-            'pending_now'    => Visitor::where('status', 'Pending')->count(),
-            'approved_today' => Visitor::where('status', 'Approved')
+            'pending_now'    => Visitor::whereIn('status', ['Pending', 'pending'])->count(),
+            'approved_today' => Visitor::whereIn('status', ['Approved', 'approved'])
                                         ->whereDate('updated_at', Carbon::today())->count(),
         ];
 
-        // 2. Top 5 Busiest Hosts (Ranked by visitor count)
         $topHosts = Visitor::select('host_name', DB::raw('count(*) as total'))
             ->whereNotNull('host_name')
             ->groupBy('host_name')
@@ -57,12 +71,10 @@ class AdminController extends Controller
             ->take(5)
             ->get();
 
-        // 3. Distribution of Visitor Types
         $visitorTypes = Visitor::select('type', DB::raw('count(*) as total'))
             ->groupBy('type')
             ->get();
 
-        // 4. Weekly Traffic Trend (Filling gaps with zero for smooth charts)
         $rawTraffic = Visitor::select(DB::raw('DATE(created_at) as date'), DB::raw('count(*) as total'))
             ->where('created_at', '>=', now()->subDays(6))
             ->groupBy('date')
@@ -71,65 +83,72 @@ class AdminController extends Controller
 
         $dailyTraffic = collect();
         for ($i = 6; $i >= 0; $i--) {
-            $date = now()->subDays($i)->format('Y-m-d');
+            $dateObj = now()->subDays($i);
+            $dateKey = $dateObj->format('Y-m-d');
+            
             $dailyTraffic->push([
-                'date' => now()->subDays($i)->format('D, M d'),
-                'total' => $rawTraffic->get($date, 0)
+                'label' => $dateObj->format('D, M d'),
+                'total' => $rawTraffic->get($dateKey, 0)
             ]);
         }
 
         return view('admin.analytics', compact('topHosts', 'visitorTypes', 'dailyTraffic', 'stats'));
     }
 
-    /**
-     * Show the form to create a new Host.
-     */
+    public function visitorDetails($id)
+    {
+        $visitor = Visitor::findOrFail($id);
+        return view('admin.visitor_details', compact('visitor'));
+    }
+
+    public function listUsers()
+    {
+        $users = User::latest()->paginate(10);
+        return view('admin.users_index', compact('users'));
+    }
+
     public function createHost()
     {
         return view('admin.create_host');
     }
 
     /**
-     * Save the new Host to the database.
+     * Refined storeHost with Detailed Modal Feedback
      */
     public function storeHost(Request $request)
     {
+        // Pre-format phone
+        if ($request->has('phone')) {
+            $request->merge(['phone' => $this->formatPhone($request->phone)]);
+        }
+
         $validated = $request->validate([
             'name'     => 'required|string|max:255',
             'email'    => 'required|email|unique:users,email',
             'phone'    => 'required|string|unique:users,phone',
-            'password' => 'required|min:6|confirmed',
+            'role'     => 'required|in:host,guard,admin',
+            'password' => 'required|min:8|confirmed',
         ]);
 
-        // Standardize phone format for Kenya (Africa's Talking compatible)
-        $phone = $validated['phone'];
-        if (str_starts_with($phone, '0')) {
-            $phone = '+254' . substr($phone, 1);
+        try {
+            User::create([
+                'name'     => $validated['name'],
+                'email'    => $validated['email'],
+                'phone'    => $validated['phone'],
+                'role'     => strtolower($validated['role']),
+                'password' => Hash::make($validated['password']),
+            ]);
+
+            // Detailed message for the SweetAlert2 Modal
+            $roleLabel = ucfirst($validated['role']);
+            return redirect()->route('admin.users_index')
+                ->with('success', "Success! New $roleLabel account for {$validated['name']} has been provisioned.");
+        
+        } catch (\Exception $e) {
+            return back()->withInput()->with('error', 'Critical System Failure: Unable to create user. Please check database logs.');
         }
-
-        User::create([
-            'name'     => $validated['name'],
-            'email'    => $validated['email'],
-            'phone'    => $phone,
-            'role'     => 'host',
-            'password' => Hash::make($validated['password']),
-        ]);
-
-        return redirect()->route('admin.users.index')->with('success', 'New Host registered successfully!');
     }
 
-    /**
-     * List all hosts for the Admin to see.
-     */
-    public function listUsers()
-    {
-        $users = User::where('role', 'host')->latest()->get();
-        return view('admin.users_index', compact('users'));
-    }
-
-    /**
-     * Show the form to edit an existing Host.
-     */
     public function editUser($id)
     {
         $user = User::findOrFail($id);
@@ -137,51 +156,132 @@ class AdminController extends Controller
     }
 
     /**
-     * Update Host details in the database.
+     * Refined updateUser with Detailed Modal Feedback
      */
     public function updateUser(Request $request, $id)
     {
         $user = User::findOrFail($id);
 
+        if ($request->has('phone')) {
+            $request->merge(['phone' => $this->formatPhone($request->phone)]);
+        }
+
         $validated = $request->validate([
             'name'     => 'required|string|max:255',
             'email'    => 'required|email|unique:users,email,' . $user->id,
             'phone'    => 'required|string|unique:users,phone,' . $user->id,
-            'password' => 'nullable|min:6|confirmed', 
+            'password' => 'nullable|min:8|confirmed', 
         ]);
 
-        $phone = $validated['phone'];
-        if (str_starts_with($phone, '0')) {
-            $phone = '+254' . substr($phone, 1);
+        try {
+            $user->name = $validated['name'];
+            $user->email = $validated['email'];
+            $user->phone = $validated['phone'];
+
+            if ($request->filled('password')) {
+                $user->password = Hash::make($validated['password']);
+            }
+
+            $user->save();
+            return redirect()->route('admin.users_index')
+                ->with('success', "Updates saved! The profile for {$user->name} has been refreshed.");
+
+        } catch (\Exception $e) {
+            return back()->with('error', 'Error: Could not update user details.');
         }
-
-        $user->name = $validated['name'];
-        $user->email = $validated['email'];
-        $user->phone = $phone;
-
-        if ($request->filled('password')) {
-            $user->password = Hash::make($validated['password']);
-        }
-
-        $user->save();
-
-        return redirect()->route('admin.users.index')->with('success', 'Host updated successfully!');
     }
 
     /**
-     * Remove a Host from the system.
+     * Refined destroyUser with Detailed Modal Feedback
      */
     public function destroyUser($id)
     {
         $user = User::findOrFail($id);
 
-        // Security: Prevent admin from deleting themselves
         if ($user->id === Auth::id()) {
-            return back()->with('error', 'You cannot delete your own account.');
+            return back()->with('error', 'Operation Denied: You cannot delete the account you are currently logged into.');
         }
 
-        $user->delete();
+        try {
+            $userName = $user->name;
+            $user->delete();
+            return redirect()->route('admin.users_index')
+                ->with('success', "User Removed: $userName has been successfully deleted from the system.");
+        } catch (\Exception $e) {
+            return back()->with('error', 'Delete Failed: This user might be linked to active visitor records.');
+        }
+    }
 
-        return redirect()->route('admin.users.index')->with('success', 'Host account removed successfully.');
+    /**
+     * Security Audit Logs with Search
+     */
+    public function securityLogs(Request $request)
+    {
+        $query = SecurityLog::with('user')->latest();
+
+        if ($request->filled('search')) {
+            $search = $request->get('search');
+            $query->where(function($q) use ($search) {
+                $q->where('ip_address', 'LIKE', "%{$search}%")
+                  ->orWhere('action', 'LIKE', "%{$search}%")
+                  ->orWhere('url', 'LIKE', "%{$search}%")
+                  ->orWhereHas('user', function($u) use ($search) {
+                      $u->where('name', 'LIKE', "%{$search}%");
+                  });
+            });
+        }
+
+        $logs = $query->paginate(25)->withQueryString();
+        return view('admin.security_logs', compact('logs'));
+    }
+
+    public function clearSecurityLogs()
+    {
+        SecurityLog::truncate();
+
+        SecurityLog::create([
+            'user_id' => Auth::id(),
+            'action' => 'PURGED_SECURITY_LOGS',
+            'ip_address' => request()->ip(),
+            'url' => request()->fullUrl(),
+            'user_agent' => request()->userAgent()
+        ]);
+        
+        return back()->with('success', 'The security audit trail has been cleared and reset.');
+    }
+
+    public function exportSecurityLogs()
+    {
+        $logs = SecurityLog::with('user')->latest()->limit(1000)->get();
+        
+        $data = [
+            'title' => 'Security Audit Report',
+            'date'  => now()->format('d M, Y h:i A'),
+            'logs'  => $logs,
+            'admin' => Auth::user()->name
+        ];
+
+        $pdf = Pdf::loadView('admin.pdf_security_logs', $data)
+                  ->setPaper('a4', 'landscape');
+
+        return $pdf->download('Audit-Report-' . now()->format('Y-m-d') . '.pdf');
+    }
+
+    /**
+     * Helper to standardize phone numbers (Kenya format)
+     */
+    private function formatPhone($phone)
+    {
+        $phone = preg_replace('/[^0-9]/', '', $phone);
+
+        if (str_starts_with($phone, '0')) {
+            return '+254' . substr($phone, 1);
+        }
+        
+        if (str_starts_with($phone, '254') && strlen($phone) == 12) {
+            return '+' . $phone;
+        }
+
+        return (str_starts_with($phone, '+')) ? $phone : '+' . $phone;
     }
 }

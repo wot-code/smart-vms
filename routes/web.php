@@ -12,22 +12,21 @@ use Illuminate\Support\Facades\Auth;
 |--------------------------------------------------------------------------
 */
 
-// 1. Landing Page
 Route::get('/', function () {
     return view('welcome');
 });
 
-// 2. Visitor Self-Registration
-Route::get('/checkin', [VisitorController::class, 'create'])->name('visitor.register');
-Route::post('/register-visitor', [VisitorController::class, 'store'])->name('visitor.store');
+// Visitor Self-Registration (Public)
+Route::controller(VisitorController::class)->group(function () {
+    Route::get('/checkin', 'create')->name('visitor.register');
+    Route::post('/register-visitor', 'store')->name('visitor.store');
+    Route::get('/registration-success/{id}', 'showPass')->name('visitor.pass');
+});
 
-// Success page/pass (GET route to prevent form re-submission)
-Route::get('/registration-success/{id}', [VisitorController::class, 'showPass'])->name('visitor.pass');
-
-// 3. Authentication (Login)
+// Authentication Routes
 Route::get('/login', function() { 
     return view('login'); 
-})->name('login');
+})->name('login')->middleware('guest');
 
 Route::post('/login', function(Request $request) {
     $credentials = $request->validate([
@@ -37,6 +36,7 @@ Route::post('/login', function(Request $request) {
 
     if (Auth::attempt($credentials)) {
         $request->session()->regenerate();
+        // Simply redirect to /dashboard; the VisitorController@index handles the rest
         return redirect()->intended('/dashboard');
     }
     return back()->withErrors(['email' => 'The provided credentials do not match our records.']);
@@ -49,38 +49,51 @@ Route::post('/login', function(Request $request) {
 */
 Route::middleware('auth')->group(function () {
     
-    /**
-     * FIX: Changed from VisitorController to AdminController
-     * This ensures the $stats variable (Arrivals, Pending, Inside) is passed 
-     * to the dashboard view correctly as per our AdminController update.
-     */
-    Route::get('/dashboard', [AdminController::class, 'index'])->name('dashboard');
+    // Main Entry Point for Admin and Hosts
+    Route::get('/dashboard', [VisitorController::class, 'index'])->name('dashboard');
 
-    // Visitor Management Actions
-    Route::post('/approve-visitor/{id}', [VisitorController::class, 'approve'])->name('visitor.approve');
-    Route::post('/reject-visitor/{id}', [VisitorController::class, 'reject'])->name('visitor.reject');
-    Route::get('/visitor/{id}', [VisitorController::class, 'show'])->name('visitor.show');
-    Route::post('/checkout/{id}', [VisitorController::class, 'checkout'])->name('visitor.checkout');
+    // Shared Visitor Actions
+    Route::controller(VisitorController::class)->group(function () {
+        Route::get('/visitor/{id}', 'show')->name('visitor.show');
+        Route::post('/approve-visitor/{id}', 'approve')->name('visitor.approve');
+        Route::post('/reject-visitor/{id}', 'reject')->name('visitor.reject');
+        Route::post('/visitor/checkout/{id}', 'processCheckOut')->name('visitor.checkout');
+    });
 
     /*
+    | Guard Section
     |--------------------------------------------------------------------------
+    */
+    Route::middleware('can:guard-access')->group(function () {
+        Route::get('/guard/dashboard', [VisitorController::class, 'guardDashboard'])->name('guard.dashboard');
+        Route::get('/guard/register', [VisitorController::class, 'guardCreate'])->name('guard.register');
+        Route::post('/guard/store', [VisitorController::class, 'guardStore'])->name('guard.store');
+        Route::post('/guard/checkin/{id}', [VisitorController::class, 'processCheckIn'])->name('guard.checkin');
+    });
+
+    /*
     | Admin Only Section
     |--------------------------------------------------------------------------
     */
-    Route::middleware('can:admin-only')->group(function () {
+    Route::middleware('can:admin-only')->prefix('admin')->name('admin.')->group(function () {
         
-        // Analytics & Reports
-        Route::get('/admin/analytics', [AdminController::class, 'analytics'])->name('admin.analytics');
+        // 1. Visitor Management (The fix for your error)
+        Route::delete('/visitor/{id}', [VisitorController::class, 'destroy'])->name('visitor.destroy');
+
+        // 2. Analytics & Detailed Logs
+        Route::get('/analytics', [AdminController::class, 'analytics'])->name('analytics');
+        Route::get('/visitor-details/{id}', [AdminController::class, 'visitorDetails'])->name('visitor_details');
+        Route::get('/security-logs', [AdminController::class, 'securityLogs'])->name('security_logs');
+        Route::get('/security-logs/export', [AdminController::class, 'exportSecurityLogs'])->name('security_logs.export');
+        Route::delete('/security-logs/clear', [AdminController::class, 'clearSecurityLogs'])->name('security_logs.clear');
         
-        // Host/User Management
-        Route::get('/admin/users', [AdminController::class, 'listUsers'])->name('admin.users.index');
-        Route::get('/admin/create-host', [AdminController::class, 'createHost'])->name('admin.host.create');
-        Route::post('/admin/store-host', [AdminController::class, 'storeHost'])->name('admin.host.store');
-        Route::get('/admin/user/{id}/edit', [AdminController::class, 'editUser'])->name('admin.user.edit');
-        
-        // Standardizing to PATCH or PUT for updates is best practice
-        Route::patch('/admin/user/{id}', [AdminController::class, 'updateUser'])->name('admin.user.update');
-        Route::delete('/admin/user/{id}', [AdminController::class, 'destroyUser'])->name('admin.user.delete');
+        // 3. User (Host) Management
+        Route::get('/users', [AdminController::class, 'listUsers'])->name('users_index');
+        Route::get('/users/create', [AdminController::class, 'createHost'])->name('create_host');
+        Route::post('/users/store', [AdminController::class, 'storeHost'])->name('store_host');
+        Route::get('/users/{id}/edit', [AdminController::class, 'editUser'])->name('edit_user');
+        Route::match(['put', 'patch'], '/users/{id}', [AdminController::class, 'update_user'])->name('update_user');
+        Route::delete('/users/{id}', [AdminController::class, 'destroyUser'])->name('destroy_user');
     });
 
     // Logout
