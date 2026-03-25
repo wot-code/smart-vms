@@ -1,0 +1,17 @@
+{
+    "name": "Smart VMS — Visitor Registration",
+    "short_name": "SmartVMS",
+    "description": "Smart Visitor Management System — Secure, offline-capable check-in",
+    "start_url": "/checkin",
+    "display": "standalone",
+    "background_color": "#f8fafc",
+    "theme_color": "#102a43",
+    "orientation": "portrait-primary",
+    "icons": [
+        {
+            "src": "/favicon.ico",
+            "sizes": "64x64",
+            "type": "image/x-icon"
+        }
+    ]
+}

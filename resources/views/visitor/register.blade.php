@@ -3,7 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#102a43">
     <title>Visitor Registration | Smart VMS</title>
+    <link rel="manifest" href="/manifest.json">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
         body { background-color: #f4f7f6; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
@@ -15,6 +17,24 @@
         }
         .form-label { margin-bottom: 0.3rem; }
         .d-none { display: none !important; }
+
+        /* ── Offline toast ── */
+        #vms-offline-toast {
+            display: none;
+            position: fixed; bottom: 1.5rem; left: 50%; transform: translateX(-50%);
+            background: #102a43; color: #fff;
+            padding: 0.85rem 1.5rem; border-radius: 999px;
+            font-size: 0.85rem; font-weight: 600;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+            z-index: 9999; white-space: nowrap;
+            animation: slideUp 0.3s ease;
+        }
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateX(-50%) translateY(20px); }
+            to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+        }
+        #vms-offline-toast.show { display: block; }
+        #vms-offline-toast.offline-mode { background: #b45309; }
     </style>
 </head>
 <body>
@@ -196,6 +216,153 @@
                 document.getElementById('signature_data').value = signaturePad.toDataURL();
             }
         });
+    </script>
+
+    {{-- ═══════════════════════════════════════════════════════════════
+         OFFLINE RESILIENCE — Service Worker + IndexedDB Queue
+         When offline: saves form to IndexedDB, shows toast.
+         On reconnect: auto-syncs queued records to /visitor/offline-sync
+    ════════════════════════════════════════════════════════════════════ --}}
+
+    {{-- Offline status toast --}}
+    <div id="vms-offline-toast">📡 Offline — Registration saved locally</div>
+
+    <script>
+    // ─── 1. Register Service Worker ───────────────────────────────────────────
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('/sw.js')
+                .then(reg => {
+                    console.log('[VMS SW] Registered:', reg.scope);
+                    // Trigger sync for any queued offline records
+                    if ('SyncManager' in window) {
+                        reg.sync.register('vms-offline-queue').catch(() => {});
+                    }
+                })
+                .catch(err => console.warn('[VMS SW] Registration failed:', err));
+        });
+    }
+
+    // ─── 2. IndexedDB Helper ──────────────────────────────────────────────────
+    function openVmsDB() {
+        return new Promise((resolve, reject) => {
+            const req = indexedDB.open('SmartVMS', 1);
+            req.onupgradeneeded = e => {
+                const db = e.target.result;
+                if (!db.objectStoreNames.contains('queue')) {
+                    db.createObjectStore('queue', { keyPath: 'id', autoIncrement: true });
+                }
+            };
+            req.onsuccess = e => resolve(e.target.result);
+            req.onerror   = e => reject(e.target.error);
+        });
+    }
+
+    async function saveToOfflineQueue(data) {
+        const db = await openVmsDB();
+        return new Promise((resolve, reject) => {
+            const tx    = db.transaction('queue', 'readwrite');
+            const store = tx.objectStore('queue');
+            const req   = store.add({ data, savedAt: new Date().toISOString() });
+            req.onsuccess = () => resolve(req.result);
+            req.onerror   = ()  => reject(req.error);
+        });
+    }
+
+    // ─── 3. Offline Toast ─────────────────────────────────────────────────────
+    const toast = document.getElementById('vms-offline-toast');
+
+    function showToast(msg, isOffline = false) {
+        toast.textContent = msg;
+        toast.classList.toggle('offline-mode', isOffline);
+        toast.classList.add('show');
+        clearTimeout(toast._timer);
+        toast._timer = setTimeout(() => toast.classList.remove('show'), 5000);
+    }
+
+    // Persistent banner when offline
+    window.addEventListener('offline', () => {
+        toast.textContent = '⚠️  No connection — form will save locally';
+        toast.classList.add('show', 'offline-mode');
+    });
+    window.addEventListener('online', () => {
+        toast.classList.remove('offline-mode');
+        showToast('✅ Back online — syncing saved records...');
+        
+        // Background Sync API often delays syncs by minutes to save battery.
+        // For an instant presentation demo, we force a manual frontend sync right now:
+        manualSync();
+        
+        navigator.serviceWorker.ready.then(reg => {
+            if ('SyncManager' in window) reg.sync.register('vms-offline-queue').catch(() => {});
+        });
+    });
+
+    // ─── 4. Intercept Form Submit ─────────────────────────────────────────────
+    document.getElementById('visitorForm').addEventListener('submit', async function(e) {
+
+        if (!navigator.onLine) {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+
+            // Must manually validate & inject signature because we stopped propagation
+            if (signaturePad.isEmpty()) {
+                alert("Please provide your signature before submitting.");
+                return;
+            }
+            document.getElementById('signature_data').value = signaturePad.toDataURL();
+
+            // Collect all form field values
+            const formData = new FormData(this);
+            const payload  = {};
+            formData.forEach((val, key) => { if (key !== '_token') payload[key] = val; });
+
+            try {
+                await saveToOfflineQueue(payload);
+                showToast('📡 Offline — Registration saved & will sync automatically', true);
+
+                // Reset form
+                this.reset();
+                signaturePad.clear();
+            } catch (err) {
+                alert('⚠️ Could not save offline. Please try again.');
+                console.error('[VMS Offline Queue]', err);
+            }
+        }
+        // If online: normal submit proceeds
+    }, true); // capture phase
+
+    // ─── 5. Manual Sync Fallback (for Safari / older browsers) ───────────────
+    async function manualSync() {
+        const db    = await openVmsDB();
+        const tx    = db.transaction('queue', 'readwrite');
+        const store = tx.objectStore('queue');
+        const all   = await new Promise((res, rej) => {
+            const r = store.getAll();
+            r.onsuccess = () => res(r.result);
+            r.onerror   = () => rej(r.error);
+        });
+
+        let synced = 0;
+        for (const record of all) {
+            try {
+                const resp = await fetch('/visitor/offline-sync', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                    body: JSON.stringify(record.data)
+                });
+                if (resp.ok) {
+                    const delTx = db.transaction('queue', 'readwrite');
+                    delTx.objectStore('queue').delete(record.id);
+                    synced++;
+                }
+            } catch { /* Will retry on next online event */ }
+        }
+        if (synced > 0) showToast(`✅ ${synced} offline record(s) synced successfully`);
+    }
+
+    // Run manual sync immediately in case SW Background Sync isn't supported
+    if (navigator.onLine) manualSync();
     </script>
 </body>
 </html>
