@@ -1,92 +1,66 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{{ $viewTitle ?? 'VMS Portal' }}</title>
-    
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+
+    <title>{{ $viewTitle ?? config('app.name', 'Smart VMS') }}</title>
+
+    {{-- Inter font --}}
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    {{-- Bootstrap Icons (used across all views) --}}
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
-    
+
+    {{-- Bootstrap CSS is no longer needed in this layout (portal pages use layouts.portal) --}}
+
+    {{-- Compiled Tailwind CSS via Vite --}}
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
+
+    @livewireStyles
+
     <style>
-        :root { --vms-primary: #2c3e50; }
-        body { background-color: #f4f7f6; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-        .navbar { background-color: var(--vms-primary) !important; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        .main-container { margin-top: 2rem; margin-bottom: 3rem; }
-        /* Smooth fade-in for content */
-        .fade-in { animation: fadeIn 0.5s ease-in; }
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        body { font-family: 'Inter', ui-sans-serif, system-ui, sans-serif; }
+        .fade-in { animation: fadeIn 0.3s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* Portal navbar/sidebar vars — used only when Bootstrap is active */
+        :root { --vms-primary: #102a43; --vms-sidebar: #0a1929; }
     </style>
+
+    @stack('styles')
 </head>
-<body>
-    <nav class="navbar navbar-expand-lg navbar-dark">
-        <div class="container">
-            <a class="navbar-brand d-flex align-items-center" href="#">
-                <i class="bi bi-shield-lock-fill me-2"></i>
-                <span>VMS PRO</span>
+<body class="antialiased">
+
+    @if(Auth::check() && !Request::is('/') && !Request::is('login'))
+    <nav class="navbar navbar-expand-lg navbar-dark sticky-top shadow-sm" style="background-color: var(--vms-primary);">
+        <div class="container-fluid px-4">
+            <a class="navbar-brand d-flex align-items-center" href="{{ url('/') }}">
+                <i class="bi bi-shield-lock-fill fs-3 me-2" style="color: #0ea5e9;"></i>
+                <span class="fw-semibold">Smart VMS</span>
             </a>
-            
-            <div class="d-flex align-items-center">
-                @auth
-                    <span class="text-light me-3 d-none d-md-inline">
-                        <small>Logged in as: <strong>{{ Auth::user()->name }}</strong></small>
-                    </span>
-                    <form action="{{ route('logout') }}" method="POST" class="d-inline">
-                        @csrf
-                        <button type="submit" class="btn btn-outline-light btn-sm px-3">
-                            <i class="bi bi-box-arrow-right me-1"></i> Logout
-                        </button>
-                    </form>
-                @endauth
+            <div class="ms-auto d-flex align-items-center gap-3">
+                <span class="text-white-50 small d-none d-md-inline">{{ Auth::user()->name }}</span>
+                <form action="{{ route('logout') }}" method="POST" class="d-inline">
+                    @csrf
+                    <button type="submit" class="btn btn-outline-light btn-sm rounded-pill px-3">Logout</button>
+                </form>
             </div>
         </div>
     </nav>
+    @endif
 
-    <div class="container main-container fade-in">
+    <main class="fade-in">
         @yield('content')
-    </div>
+        {{ $slot ?? '' }}
+    </main>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            // 1. Success Modal
-            @if(session('success'))
-                Swal.fire({
-                    icon: 'success',
-                    title: 'Success!',
-                    text: "{{ session('success') }}",
-                    timer: 4000,
-                    showConfirmButton: false,
-                    timerProgressBar: true,
-                    background: '#ffffff',
-                    iconColor: '#28a745',
-                });
-            @endif
-
-            // 2. Error Modal (for validation or system failures)
-            @if(session('error'))
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Oops...',
-                    text: "{{ session('error') }}",
-                    confirmButtonColor: '#dc3545'
-                });
-            @endif
-
-            // 3. Validation Errors Modal (If any)
-            @if ($errors->any())
-                Swal.fire({
-                    icon: 'warning',
-                    title: 'Validation Error',
-                    html: '<ul class="text-start">@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul>',
-                    confirmButtonColor: '#f39c12'
-                });
-            @endif
-        });
-    </script>
-    
+    @livewireScripts
     @stack('scripts')
 </body>
 </html>

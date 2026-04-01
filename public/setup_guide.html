@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Setup Guide - Smart VMS</title>
+    <style>
+        /* A4 Print Styling */
+        @page { size: A4; margin: 2cm; }
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            line-height: 1.6; 
+            color: #333; 
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h1 { font-size: 20pt; text-align: center; border-bottom: 2px solid #0d6efd; padding-bottom: 10px; margin-bottom: 30px; color: #0d6efd; }
+        h2 { font-size: 16pt; margin-top: 25px; color: #111; border-left: 5px solid #0d6efd; padding-left: 10px; }
+        h3 { font-size: 14pt; margin-top: 20px; color: #444; }
+        pre {
+            background-color: #f4f4f4;
+            border: 1px solid #ddd;
+            padding: 10px;
+            border-radius: 5px;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 11pt;
+            overflow-x: auto;
+            page-break-inside: avoid;
+        }
+        code { font-family: 'Courier New', Courier, monospace; background: #eee; padding: 2px 4px; border-radius: 3px; }
+        .highlight { color: #d63384; font-weight: bold; }
+        .print-btn {
+            display: block; width: 220px; margin: 20px auto; padding: 12px;
+            background-color: #0d6efd; color: white; text-align: center;
+            text-decoration: none; font-family: Arial, sans-serif; border-radius: 5px;
+            cursor: pointer; border: none; font-size: 14px;
+        }
+        .footer { margin-top: 50px; text-align: center; font-size: 10pt; color: #777; border-top: 1px solid #ddd; padding-top: 10px; }
+        @media print {
+            .print-btn { display: none; }
+            body { padding: 0; }
+        }
+    </style>
+</head>
+<body>
+
+    <button class="print-btn" onclick="window.print()">🖨️ Save Guide as PDF</button>
+
+    <h1>🛡️ Smart VMS: Professional Setup Guide</h1>
+    
+    <p>This document provides the necessary steps for developers and system administrators to deploy the Smart Visitor Management System (Smart VMS) in a local environment using XAMPP.</p>
+
+    <h2>1. 🚀 Technical Requirements</h2>
+    <p>Ensure the following software is installed on the host machine:</p>
+    <ul>
+        <li><strong>XAMPP Control Panel</strong> (equipped with PHP 8.2 or higher).</li>
+        <li><strong>Composer</strong> (The dependency manager for PHP).</li>
+        <li><strong>Modern Web Browser</strong> (Google Chrome or Safari recommended for PWA features).</li>
+    </ul>
+
+    <h2>2. 🛠️ Installation Steps</h2>
+
+    <h3>Step 1: Project Extraction</h3>
+    <p>Extract the project files or clone the repository into your <code>C:\xampp\htdocs\</code> directory:</p>
+    <pre>cd C:\xampp\htdocs\smart-vms</pre>
+
+    <h3>Step 2: Dependency Installation</h3>
+    <p>Open your terminal/command prompt inside the <code>smart-vms</code> folder and run:</p>
+    <pre>composer install</pre>
+
+    <h3>Step 3: Environment Configuration</h3>
+    <p>Locate the <code>.env.example</code> file in the root folder. Rename it to <strong><code>.env</code></strong> and update the database credentials:</p>
+    <pre>DB_CONNECTION=mysql<br>DB_HOST=127.0.0.1<br>DB_PORT=3306<br>DB_DATABASE=vms_db<br>DB_USERNAME=root<br>DB_PASSWORD=</pre>
+
+    <h3>Step 4: Database Setup</h3>
+    <ol>
+        <li>Start <strong>Apache</strong> and <strong>MySQL</strong> in XAMPP.</li>
+        <li>Open <code class="highlight">http://localhost/phpmyadmin</code>.</li>
+        <li>Create a new database named <strong><code>vms_db</code></strong>.</li>
+        <li>Select the database and click <strong>"Import"</strong>.</li>
+        <li>Upload the file: <code class="highlight">vms_db_dump.sql</code> found in the project root.</li>
+    </ol>
+
+    <h3>Step 5: Initialization</h3>
+    <p>Generate the unique application security key:</p>
+    <pre>php artisan key:generate</pre>
+
+    <h2>3. 🏃 Running the Application</h2>
+    <p>To launch the system, execute the following command:</p>
+    <pre>php artisan serve</pre>
+    <p>The application will be accessible at: <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a></p>
+
+    <h2>4. 🔑 Default Access</h2>
+    <p>Once the database is imported, you can log in using the administrator accounts provided. All visitors can access the public registration portal via the <strong>/checkin</strong> route.</p>
+
+    <div class="footer">
+        &copy; 2026 Smart Visitor Management System | Generated for Institutional Implementation
+    </div>
+
+</body>
+</html>

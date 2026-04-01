@@ -1,208 +1,156 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
-    <title>{{ $viewTitle }} | Smart VMS</title>
-    <style>
-        .animate-pulse { animation: pulse 2s infinite; }
-        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
-        .stat-card { transition: transform 0.2s; border: none; }
-        .stat-card:hover { transform: translateY(-3px); }
-        .navbar-brand { fw-bold; letter-spacing: 1px; }
-    </style>
-</head>
-<body class="bg-light">
-    {{-- Top Navigation --}}
-    <nav class="navbar navbar-dark bg-dark px-4 shadow">
-        <span class="navbar-brand">
-            <i class="bi bi-shield-check me-2"></i>Smart VMS | {{ auth()->user()->role == 'admin' ? 'Administrator' : 'Host Portal' }}
-        </span>
-        <div class="d-flex align-items-center text-white">
-            <span class="me-3 d-none d-md-inline">Welcome, <strong>{{ auth()->user()->name }}</strong></span>
-            <form action="{{ route('logout') }}" method="POST">
-                @csrf
-                <button class="btn btn-outline-light btn-sm">
-                    <i class="bi bi-box-arrow-right me-1"></i> Logout
-                </button>
-            </form>
+@extends('layouts.portal')
+
+@section('content')
+<div class="px-6 py-6 space-y-6">
+
+    {{-- ─── Page Header ─── --}}
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+            <h1 class="text-xl font-bold text-[#0a1929]">My Visitors Portal</h1>
+            <p class="text-sm text-slate-500 mt-0.5">Manage your expected visitors, approve requests, and view history.</p>
         </div>
-    </nav>
-
-    <div class="container-fluid mt-4">
-        
-        {{-- SECTION 1: Admin-Only Stats & Management --}}
-        @if(auth()->user()->role === 'admin' && isset($stats))
-        <div class="row mb-4 g-3">
-            <div class="col-md-2">
-                <div class="card stat-card shadow-sm bg-primary text-white">
-                    <div class="card-body">
-                        <small class="text-uppercase opacity-75">Today's Arrivals</small>
-                        <h3 class="mb-0 fw-bold">{{ $stats['total_today'] }}</h3>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-2">
-                <div class="card stat-card shadow-sm bg-warning text-dark">
-                    <div class="card-body">
-                        <small class="text-uppercase opacity-75">Pending</small>
-                        <h3 class="mb-0 fw-bold">{{ $stats['pending'] }}</h3>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-2">
-                <div class="card stat-card shadow-sm bg-success text-white">
-                    <div class="card-body">
-                        <small class="text-uppercase opacity-75">Currently Inside</small>
-                        <h3 class="mb-0 fw-bold">{{ $stats['inside'] }}</h3>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="col-md-3">
-                <div class="card stat-card shadow-sm bg-info text-white">
-                    <a href="{{ route('admin.analytics') }}" class="text-decoration-none text-white">
-                        <div class="card-body d-flex justify-content-between align-items-center">
-                            <div>
-                                <small class="text-uppercase opacity-75">Detailed Insights</small>
-                                <h5 class="mb-0 fw-bold">View Analytics</h5>
-                            </div>
-                            <i class="bi bi-graph-up-arrow fs-2 opacity-50"></i>
-                        </div>
-                    </a>
-                </div>
-            </div>
-
-            <div class="col-md-3">
-                 <a href="{{ route('admin.create_host') }}" class="btn btn-dark w-100 py-3 shadow-sm d-flex align-items-center justify-content-center h-100">
-                    <i class="bi bi-person-plus-fill me-2"></i> Add New Host/Staff
-                 </a>
-            </div>
-        </div>
-        @endif
-
-        {{-- SECTION 2: Visitor Records Table --}}
-        <div class="card shadow-sm border-0 rounded-3">
-            <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
-                <h5 class="mb-0 fw-bold text-dark">
-                    <i class="bi bi-people me-2"></i>{{ $viewTitle }}
-                </h5>
-                <span class="badge bg-secondary rounded-pill px-3">
-                    {{ $visitors->total() }} Records Total
-                </span>
-            </div>
-            <div class="card-body">
-                {{-- Flash Messages --}}
-                @if(session('success'))
-                    <div class="alert alert-success border-0 shadow-sm alert-dismissible fade show">
-                        {{ session('success') }}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                    </div>
-                @endif
-                
-                @if($errors->any())
-                    <div class="alert alert-danger border-0 shadow-sm">
-                        {{ $errors->first() }}
-                    </div>
-                @endif
-
-                <div class="table-responsive">
-                    <table class="table table-hover align-middle">
-                        <thead class="table-light">
-                            <tr>
-                                <th>Visitor</th>
-                                <th>Host</th>
-                                <th>Status</th>
-                                <th>Details</th>
-                                <th>Action</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @forelse($visitors as $v)
-                            <tr>
-                                <td>
-                                    <div class="fw-bold text-dark">{{ $v->full_name }}</div>
-                                    <small class="text-muted"><i class="bi bi-telephone me-1"></i>{{ $v->phone }}</small>
-                                </td>
-                                <td>
-                                    <span class="text-muted">
-                                        <i class="bi bi-house-door me-1"></i>{{ $v->host_name }}
-                                    </span>
-                                </td>
-                                <td>
-                                    @if($v->status == 'Pending')
-                                        <span class="badge bg-warning text-dark animate-pulse px-3 py-2">PENDING</span>
-                                    @elseif($v->status == 'Approved')
-                                        <span class="badge bg-info px-3 py-2 text-white">APPROVED</span>
-                                    @elseif($v->status == 'Inside')
-                                        <span class="badge bg-success px-3 py-2">INSIDE</span>
-                                    @elseif($v->status == 'Rejected')
-                                        <span class="badge bg-danger px-3 py-2">REJECTED</span>
-                                    @else
-                                        <span class="badge bg-secondary px-3 py-2">{{ $v->status }}</span>
-                                    @endif
-                                </td>
-                                <td>
-                                    <a href="{{ route('visitor.show', $v->id) }}" class="btn btn-sm btn-outline-primary rounded-pill">
-                                        <i class="bi bi-eye"></i> View
-                                    </a>
-                                </td>
-                                <td>
-                                    @if($v->status == 'Pending')
-                                        <div class="d-flex gap-2">
-                                            <form action="{{ route('visitor.approve', $v->id) }}" method="POST">
-                                                @csrf
-                                                <button type="submit" class="btn btn-sm btn-success px-3">
-                                                    <i class="bi bi-check-lg"></i> Approve
-                                                </button>
-                                            </form>
-                                            
-                                            <form action="{{ route('visitor.reject', $v->id) }}" method="POST">
-                                                @csrf
-                                                <button type="submit" class="btn btn-sm btn-outline-danger" 
-                                                        onclick="return confirm('Deny entry to this visitor?')">
-                                                    <i class="bi bi-x-lg"></i> Reject
-                                                </button>
-                                            </form>
-                                        </div>
-                                    @elseif($v->status == 'Inside')
-                                        <form action="{{ route('visitor.checkout', $v->id) }}" method="POST">
-                                            @csrf
-                                            <button type="submit" class="btn btn-sm btn-dark px-4">
-                                                <i class="bi bi-door-open"></i> Check Out
-                                            </button>
-                                        </form>
-                                    @elseif($v->status == 'Rejected')
-                                        <span class="text-danger small fw-bold">Entry Denied</span>
-                                    @else
-                                        <span class="text-muted small">
-                                            <i class="bi bi-check-circle-fill text-success"></i> Completed
-                                        </span>
-                                    @endif
-                                </td>
-                            </tr>
-                            @empty
-                            <tr>
-                                <td colspan="5" class="text-center py-5 text-muted">
-                                    <i class="bi bi-inbox fs-1 d-block mb-2"></i>
-                                    No records found.
-                                </td>
-                            </tr>
-                            @endforelse
-                        </tbody>
-                    </table>
-                </div>
-                
-                {{-- Pagination Links --}}
-                <div class="mt-4">
-                    {{ $visitors->links() }}
-                </div>
-            </div>
+        <div class="flex items-center gap-3">
+            <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 text-xs font-bold border border-emerald-200">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                System Live
+            </span>
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-</body>
-</html>
+    {{-- ─── Stat Cards ─── --}}
+    @if(isset($stats))
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        @php
+        $cards = [
+            ['label'=>'Total Visitors',   'value'=>$stats['total_visitors'],   'icon'=>'bi-people-fill',       'color'=>'text-[#102a43]',   'bg'=>'bg-[#102a43]/10'],
+            ['label'=>'Pending Approval', 'value'=>$stats['pending_approval'], 'icon'=>'bi-hourglass-split',  'color'=>'text-amber-600',   'bg'=>'bg-amber-50'],
+            ['label'=>'Inside Now',       'value'=>$stats['inside_now'],       'icon'=>'bi-buildings-fill',    'color'=>'text-sky-600',     'bg'=>'bg-sky-50'],
+            ['label'=>'Approved Today',   'value'=>$stats['approved_today'],   'icon'=>'bi-check-circle-fill', 'color'=>'text-emerald-600', 'bg'=>'bg-emerald-50'],
+        ];
+        @endphp
+        @foreach($cards as $c)
+        <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm transition-all hover:shadow-md">
+            <div class="flex items-start justify-between">
+                <div>
+                    <p class="text-[0.65rem] font-bold text-slate-400 uppercase tracking-widest">{{ $c['label'] }}</p>
+                    <p class="text-3xl font-extrabold text-[#0a1929] mt-1">{{ $c['value'] }}</p>
+                </div>
+                <div class="w-10 h-10 rounded-xl {{ $c['bg'] }} flex items-center justify-center flex-shrink-0">
+                    <i class="bi {{ $c['icon'] }} {{ $c['color'] }} text-base"></i>
+                </div>
+            </div>
+        </div>
+        @endforeach
+    </div>
+    @endif
+
+    {{-- ─── Visitor Records Table ─── --}}
+    <div class="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+        <div class="flex items-center justify-between px-5 py-4 border-b border-slate-100 bg-slate-50/50">
+            <div class="flex items-center gap-2">
+                <i class="bi bi-list-ul text-[#0ea5e9]"></i>
+                <h2 class="text-sm font-bold text-[#0a1929]">{{ $viewTitle ?? 'Visitor Records' }}</h2>
+            </div>
+            <span class="text-xs font-semibold px-2.5 py-1 rounded-full bg-slate-100 text-slate-600">
+                {{ $visitors->total() }} Records
+            </span>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm text-left">
+                <thead class="bg-slate-50 border-b border-slate-100 text-[0.65rem] font-bold text-slate-500 uppercase tracking-wider">
+                    <tr>
+                        <th class="px-5 py-3">Visitor</th>
+                        <th class="px-5 py-3">Host</th>
+                        <th class="px-5 py-3">Status</th>
+                        <th class="px-5 py-3 text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    @forelse($visitors as $v)
+                    <tr class="hover:bg-slate-50/50 transition-colors">
+                        <td class="px-5 py-3">
+                            <div class="flex items-center gap-3">
+                                <div class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center flex-shrink-0">
+                                    <span class="text-xs font-bold text-slate-600">{{ strtoupper(substr($v->full_name ?? $v->visitor_name ?? '?', 0, 1)) }}</span>
+                                </div>
+                                <div>
+                                    <p class="font-semibold text-[#0a1929]">{{ $v->full_name ?? $v->visitor_name }}</p>
+                                    <p class="text-xs text-slate-500">{{ $v->phone }}</p>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="px-5 py-3">
+                            <span class="text-xs font-medium text-slate-600">{{ $v->host_name }}</span>
+                        </td>
+                        <td class="px-5 py-3">
+                            @php
+                                $s = strtolower(str_replace([' ', '_', '-'], '', $v->status));
+                                [$bg, $text, $dot] = match(true) {
+                                    $s === 'approved' => ['bg-emerald-50', 'text-emerald-700', 'bg-emerald-500'],
+                                    in_array($s, ['inside', 'checkedin']) => ['bg-sky-50', 'text-sky-700', 'bg-sky-500'],
+                                    $s === 'pending' => ['bg-amber-50', 'text-amber-700', 'bg-amber-500'],
+                                    $s === 'rejected' => ['bg-red-50', 'text-red-700', 'bg-red-500'],
+                                    default => ['bg-slate-100', 'text-slate-600', 'bg-slate-400'],
+                                };
+                            @endphp
+                            <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[0.65rem] font-bold uppercase tracking-wider {{ $bg }} {{ $text }}">
+                                <span class="w-1.5 h-1.5 rounded-full {{ $dot }} {{ $s === 'pending' ? 'animate-pulse' : '' }}"></span>
+                                {{ strtoupper($v->status) }}
+                            </span>
+                        </td>
+                        <td class="px-5 py-3 text-right">
+                            <div class="flex items-center justify-end gap-2">
+                                <a href="{{ route('visitor.show', $v->id) }}" title="View Details"
+                                   class="w-8 h-8 rounded-lg bg-slate-50 hover:bg-slate-100 text-slate-500 flex items-center justify-center transition-colors border border-slate-200">
+                                    <i class="bi bi-eye"></i>
+                                </a>
+
+                                @if($s === 'pending')
+                                    <form action="{{ route('host.visitor.accept', $v->id) }}" method="POST" class="inline">
+                                        @csrf
+                                        <button type="submit" title="Approve" class="w-8 h-8 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-600 flex items-center justify-center transition-colors border border-emerald-200">
+                                            <i class="bi bi-check-lg"></i>
+                                        </button>
+                                    </form>
+                                    <form action="{{ route('host.visitor.reject', $v->id) }}" method="POST" class="inline">
+                                        @csrf
+                                        <button type="submit" title="Reject" class="w-8 h-8 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 flex items-center justify-center transition-colors border border-red-200">
+                                            <i class="bi bi-x-lg"></i>
+                                        </button>
+                                    </form>
+                                @elseif(in_array($s, ['inside', 'checkedin', 'approved']))
+                                    <form action="{{ route('host.visitor.checkout', $v->id) }}" method="POST" class="inline">
+                                        @csrf
+                                        <button type="submit" title="Check Out" class="px-3 h-8 rounded-lg bg-[#102a43] hover:bg-[#0a1929] text-white text-xs font-semibold flex items-center justify-center transition-colors">
+                                            Check Out
+                                        </button>
+                                    </form>
+                                @endif
+                            </div>
+                        </td>
+                    </tr>
+                    @empty
+                    <tr>
+                        <td colspan="4" class="text-center py-10">
+                            <div class="w-16 h-16 rounded-full bg-slate-50 flex items-center justify-center mx-auto mb-3">
+                                <i class="bi bi-inbox text-2xl text-slate-300"></i>
+                            </div>
+                            <p class="text-sm font-semibold text-slate-600">No visitors found.</p>
+                            <p class="text-xs text-slate-400 mt-1">System searched for "{{ auth()->user()->name }}".</p>
+                        </td>
+                    </tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+        
+        @if($visitors->hasPages())
+        <div class="px-5 py-4 border-t border-slate-100 bg-white">
+            {{ $visitors->links('pagination::tailwind') }}
+        </div>
+        @endif
+    </div>
+
+</div>
+@endsection

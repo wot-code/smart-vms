@@ -1,106 +1,165 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Welcome | Smart VMS Kenya</title>
-    
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    
-    <style>
-        body { 
-            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); 
-            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            min-height: 100vh;
-        }
-        .hero-card { 
-            border: none; 
-            border-radius: 24px; 
-            transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
-            background: white;
-            height: 100%;
-        }
-        .hero-card:hover { 
-            transform: translateY(-12px); 
-            box-shadow: 0 20px 40px rgba(0,0,0,0.12) !important;
-        }
-        .icon-box {
-            width: 80px;
-            height: 80px;
-            margin: 0 auto 25px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 50%;
-        }
-        .bg-soft-primary { background-color: #e7f1ff; }
-        .bg-soft-dark { background-color: #f1f1f1; }
-        
-        .display-4 {
-            letter-spacing: -1px;
-        }
-        
-        .btn-lg {
-            border-radius: 12px;
-            padding: 15px;
-            font-size: 1.1rem;
-        }
-    </style>
-</head>
-<body class="d-flex align-items-center">
-    <div class="container py-5">
-        <div class="text-center mb-5">
-            <h1 class="display-4 fw-bold text-dark">Smart VMS</h1>
-            <p class="lead text-muted fs-4">Kenya Institutional Visitor Management System</p>
-            <div style="width: 60px; height: 4px; background: #0d6efd; margin: 20px auto; border-radius: 2px;"></div>
-        </div>
+@extends('layouts.app')
 
-        <div class="row justify-content-center g-4">
-            <div class="col-md-5 col-lg-4">
-                <div class="card hero-card shadow-lg p-4 text-center">
-                    <div class="card-body d-flex flex-column">
-                        <div class="icon-box bg-soft-primary">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="35" height="35" fill="currentColor" class="bi bi-person-badge-fill text-primary" viewBox="0 0 16 16">
-                                <path d="M2 2a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2zm4.5 0a.5.5 0 0 0 0 1h3a.5.5 0 0 0 0-1zM8 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6m5 2.755C12.146 12.825 10.623 12 8 12s-4.146.826-5 1.755V14a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1z"/>
-                            </svg>
-                        </div>
-                        <h3 class="fw-bold mb-3">Visitor Check-In</h3>
-                        <p class="text-muted mb-4">Quick registration for guests and contractors. Notify your host and get your pass instantly.</p>
-                        <div class="mt-auto">
-                            <a href="{{ route('visitor.register') }}" class="btn btn-primary btn-lg w-100 shadow-sm fw-bold">
-                                Start Registration
-                            </a>
-                        </div>
-                    </div>
+@section('content')
+
+{{-- =====================================================================
+     SMART VMS — Welcome / Landing Page
+     High-contrast, bold typography, minimalist navy, pure Tailwind v4
+     ===================================================================== --}}
+
+<div class="min-h-screen bg-[#f0f4f8] flex flex-col" x-data="{ showForm: false }">
+
+    {{-- ─────────── TOP BAR ─────────── --}}
+    <header class="w-full bg-white border-b border-slate-200">
+        <div class="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
+            {{-- Brand --}}
+            <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-lg bg-[#102a43] flex items-center justify-center flex-shrink-0">
+                    <i class="bi bi-shield-lock-fill text-[#0ea5e9] text-sm"></i>
                 </div>
+                <span class="font-bold text-[#102a43] text-base tracking-tight">Smart VMS</span>
             </div>
 
-            <div class="col-md-5 col-lg-4">
-                <div class="card hero-card shadow-lg p-4 text-center">
-                    <div class="card-body d-flex flex-column">
-                        <div class="icon-box bg-soft-dark">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="35" height="35" fill="currentColor" class="bi bi-shield-lock-fill text-dark" viewBox="0 0 16 16">
-                                <path fill-rule="evenodd" d="M8 0c-.69 0-1.843.265-2.928.56-1.11.3-2.229.655-2.887.87a1.54 1.54 0 0 0-1.044 1.262c-.596 4.477.787 7.795 2.465 9.99a11.8 11.8 0 0 0 2.517 2.453c.386.273.744.482 1.048.625.28.132.581.24.829.24s.548-.108.829-.24a7 7 0 0 0 1.048-.625 11.8 11.8 0 0 0 2.517-2.453c1.678-2.195 2.895-5.513 2.465-9.99a1.54 1.54 0 0 0-1.044-1.263 63 63 0 0 0-2.887-.87C9.843.266 8.69 0 8 0m0 5a1.5 1.5 0 0 1 .5 2.915l.385 1.99a.5.5 0 0 1-.491.595h-.788a.5.5 0 0 1-.49-.595l.384-1.99A1.5 1.5 0 0 1 8 5"/>
-                            </svg>
-                        </div>
-                        <h3 class="fw-bold mb-3">Staff Portal</h3>
-                        <p class="text-muted mb-4">Authorized personnel login to manage host approvals, security logs, and analytics.</p>
-                        <div class="mt-auto">
-                            <a href="{{ route('login') }}" class="btn btn-dark btn-lg w-100 shadow-sm fw-bold">
-                                Staff & Admin Login
-                            </a>
+            {{-- Staff login link --}}
+            <a href="{{ route('login') }}"
+               class="inline-flex items-center gap-2 text-sm font-semibold text-[#102a43]
+                      border border-slate-300 rounded-lg px-4 py-2
+                      hover:bg-[#102a43] hover:text-white hover:border-[#102a43]
+                      transition-all duration-150">
+                <i class="bi bi-person-lock text-sm"></i>
+                Staff Login
+            </a>
+        </div>
+    </header>
+
+    {{-- ─────────── MAIN ─────────── --}}
+    <main class="flex-1 flex flex-col items-center justify-center px-4 py-16">
+
+        {{-- CHOICE VIEW --}}
+        <div x-show="!showForm"
+             x-transition:leave="transition ease-in duration-150"
+             x-transition:leave-start="opacity-100"
+             x-transition:leave-end="opacity-0">
+
+            {{-- Hero text --}}
+            <div class="text-center mb-12">
+                <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full
+                            bg-[#102a43] text-white text-xs font-semibold tracking-widest uppercase mb-5">
+                    <span class="w-1.5 h-1.5 rounded-full bg-[#0ea5e9] inline-block"></span>
+                    Kenya Institutional Security
+                </div>
+                <h1 class="text-4xl sm:text-5xl font-extrabold text-[#0a1929] tracking-tight mb-4 leading-tight">
+                    Secure Access.<br class="hidden sm:block">
+                    <span class="text-[#0ea5e9]">Smart Intelligence.</span>
+                </h1>
+                <p class="text-slate-600 text-base max-w-sm mx-auto leading-relaxed font-medium">
+                    Kenya's most advanced institutional visitor management platform — built for security, compliance, and speed.
+                </p>
+            </div>
+
+            {{-- Action Cards --}}
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-5 w-full max-w-2xl">
+
+                {{-- Visitor Check-In Card --}}
+                <button @click="showForm = true"
+                        class="group bg-white border-2 border-slate-200 rounded-2xl p-7 text-left
+                               hover:border-[#102a43] hover:shadow-xl transition-all duration-200
+                               focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0ea5e9]">
+                    <div class="w-12 h-12 rounded-xl bg-[#102a43] flex items-center justify-center mb-5">
+                        <i class="bi bi-person-vcard-fill text-[#0ea5e9] text-xl"></i>
+                    </div>
+                    <h2 class="text-lg font-bold text-[#0a1929] mb-2">Visitor Check-In</h2>
+                    <p class="text-sm text-slate-500 leading-relaxed mb-5">
+                        Register your visit, notify your host, and receive your digital pass instantly.
+                    </p>
+                    <span class="inline-flex items-center gap-2 text-sm font-bold text-[#0ea5e9]
+                                 group-hover:gap-3 transition-all">
+                        Start Registration
+                        <i class="bi bi-arrow-right"></i>
+                    </span>
+                </button>
+
+                {{-- Staff Portal Card --}}
+                <a href="{{ route('login') }}"
+                   class="group bg-[#102a43] border-2 border-[#102a43] rounded-2xl p-7
+                          hover:bg-[#0a1929] hover:border-[#0a1929] hover:shadow-xl transition-all duration-200
+                          focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0ea5e9]">
+                    <div class="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center mb-5">
+                        <i class="bi bi-grid-3x3-gap-fill text-white text-xl"></i>
+                    </div>
+                    <h2 class="text-lg font-bold text-white mb-2">Staff Portal</h2>
+                    <p class="text-sm text-white/60 leading-relaxed mb-5">
+                        Admin, host, and guard login to manage approvals, logs, and analytics.
+                    </p>
+                    <span class="inline-flex items-center gap-2 text-sm font-bold text-[#38bdf8]
+                                 group-hover:gap-3 transition-all">
+                        Sign In
+                        <i class="bi bi-arrow-right"></i>
+                    </span>
+                </a>
+
+            </div>
+
+            {{-- Status strip --}}
+            <div class="mt-8 flex items-center justify-center gap-4 text-xs text-slate-500 font-medium">
+                <span class="flex items-center gap-1.5">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500 inline-block animate-pulse"></span>
+                    System Online
+                </span>
+                <span class="text-slate-300">|</span>
+                <span>SMS Active</span>
+                <span class="text-slate-300">|</span>
+                <span>Data Protection Compliant</span>
+            </div>
+        </div>
+
+        {{-- REGISTRATION FORM VIEW --}}
+        <div x-show="showForm"
+             x-transition:enter="transition ease-out duration-200"
+             x-transition:enter-start="opacity-0 translate-y-2"
+             x-transition:enter-end="opacity-100 translate-y-0"
+             style="display: none;"
+             class="w-full max-w-3xl">
+
+            <div class="bg-white border-2 border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+
+                {{-- Card header --}}
+                <div class="flex items-center justify-between px-6 py-4 border-b border-[#1e3a5f] bg-[#102a43]">
+                    <div class="flex items-center gap-3">
+                        <button @click="showForm = false"
+                                class="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20
+                                       flex items-center justify-center text-white transition-colors">
+                            <i class="bi bi-arrow-left text-sm"></i>
+                        </button>
+                        <div>
+                            <h2 class="text-sm font-bold text-white">Visitor Registration</h2>
+                            <p class="text-xs text-white/50">Fill in your details below</p>
                         </div>
                     </div>
+                    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold
+                                 bg-[#0ea5e9]/20 text-[#38bdf8]">
+                        <span class="w-1.5 h-1.5 rounded-full bg-[#0ea5e9] inline-block"></span>
+                        Self Check-In
+                    </span>
+                </div>
+
+                {{-- Livewire form --}}
+                <div class="p-6 sm:p-8">
+                    @livewire('visitor-registration-form')
                 </div>
             </div>
         </div>
-        
-        <div class="text-center mt-5">
-            <p class="small text-muted mb-0">&copy; {{ date('Y') }} Smart VMS Kenya.</p>
-            <p class="small text-muted">Institutional Security & Safety Standards Compliant.</p>
-        </div>
-    </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-</body>
-</html>
+    </main>
+
+    {{-- ─────────── FOOTER ─────────── --}}
+    <footer class="w-full border-t border-slate-200 bg-white">
+        <div class="max-w-5xl mx-auto px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-1">
+            <p class="text-xs font-medium text-slate-500">© 2026 Smart VMS Kenya. All rights reserved.</p>
+            <p class="text-xs text-slate-400">Institutional Security & Safety Standards Compliant.</p>
+        </div>
+    </footer>
+
+</div>
+
+@endsection

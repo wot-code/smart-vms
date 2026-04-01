@@ -1,155 +1,200 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Add New User | Smart VMS Admin</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
-    <style>
-        body { background-color: #f8f9fa; font-family: 'Inter', sans-serif; }
-        .admin-card { max-width: 600px; margin: 40px auto; border-radius: 16px; overflow: hidden; }
-        .form-label { font-size: 0.9rem; color: #4b5563; }
-        .form-control, .form-select { padding: 0.75rem; border-radius: 8px; border: 1px solid #d1d5db; }
-        .form-control:focus, .form-select:focus { border-color: #4338ca; box-shadow: 0 0 0 3px rgba(67, 56, 202, 0.1); }
-        .btn-primary { background-color: #4338ca; border: none; padding: 0.8rem; border-radius: 8px; font-weight: 600; transition: all 0.2s; }
-        .btn-primary:hover { background-color: #3730a3; transform: translateY(-1px); }
-        .btn-primary:active { transform: translateY(0); }
-        .input-group-text { cursor: pointer; background: white; border-left: none; }
-    </style>
-</head>
-<body>
+@extends('layouts.portal')
 
-<div class="container">
-    <div class="card admin-card shadow-lg border-0">
-        <div class="card-header bg-white border-0 pt-4 pb-0 text-center">
-            <div class="d-inline-flex align-items-center justify-content-center rounded-circle mb-3" style="width: 60px; height: 60px; background: #eef2ff;">
-                <i class="bi bi-person-plus text-primary fs-2"></i>
-            </div>
-            <h4 class="fw-bold text-dark mb-1">Add New System User</h4>
-            <p class="text-muted small">Create an account for staff, residents, or security guards</p>
+@section('content')
+<div class="px-6 py-6">
+
+    <div class="max-w-2xl mx-auto space-y-6">
+
+        {{-- ─── Page Header ─── --}}
+        <div>
+            <h1 class="text-xl font-bold text-[#0a1929]">Add New User</h1>
+            <p class="text-sm text-slate-500 mt-0.5">Create an account for a host, guard, or administrator.</p>
         </div>
 
-        <div class="card-body p-4 p-md-5">
+        {{-- ─── Form Card ─── --}}
+        <div class="bg-white border border-slate-200 rounded-xl overflow-hidden">
 
-            {{-- Validation Errors --}}
-            @if ($errors->any())
-                <div class="alert alert-danger border-0 shadow-sm mb-4">
-                    <ul class="mb-0 small">
-                        @foreach ($errors->all() as $error)
-                            <li><i class="bi bi-exclamation-circle me-2"></i>{{ $error }}</li>
+            <div class="flex items-center gap-2 px-5 py-4 border-b border-slate-100">
+                <i class="bi bi-person-plus text-[#0ea5e9]"></i>
+                <h2 class="text-sm font-bold text-[#0a1929]">Account Details</h2>
+            </div>
+
+            <div class="p-6">
+
+                @if($errors->any())
+                <div class="flex items-start gap-3 bg-red-50 border border-red-200 rounded-xl p-4 mb-6">
+                    <i class="bi bi-exclamation-circle-fill text-red-500 flex-shrink-0 mt-0.5"></i>
+                    <ul class="space-y-0.5">
+                        @foreach($errors->all() as $error)
+                        <li class="text-sm text-red-700 font-medium">{{ $error }}</li>
                         @endforeach
                     </ul>
                 </div>
-            @endif
+                @endif
 
-            {{-- FIX: Updated route name to 'admin.store_host' to match web.php --}}
-            <form action="{{ route('admin.store_host') }}" method="POST" id="userForm">
-                @csrf
-                
-                <div class="mb-3">
-                    <label class="form-label fw-semibold">Full Name</label>
-                    <input type="text" name="name" 
-                           class="form-control @error('name') is-invalid @enderror" 
-                           placeholder="e.g. Mitchell Dennis" 
-                           value="{{ old('name') }}" required>
-                    @error('name')
-                        <div class="invalid-feedback">{{ $message }}</div>
-                    @enderror
-                </div>
+                <form action="{{ route('admin.store_host') }}" method="POST" id="userForm" class="space-y-5">
+                    @csrf
 
-                <div class="row">
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label fw-semibold">Email Address</label>
-                        <input type="email" name="email" 
-                               class="form-control @error('email') is-invalid @enderror" 
-                               placeholder="name@company.com" 
-                               value="{{ old('email') }}" required>
-                        @error('email')
-                            <div class="invalid-feedback">{{ $message }}</div>
-                        @enderror
+                    {{-- Full Name --}}
+                    <div>
+                        <label class="block text-xs font-bold text-[#102a43] uppercase tracking-wider mb-1.5">
+                            Full Name <span class="text-red-500">*</span>
+                        </label>
+                        <div class="relative">
+                            <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+                                <i class="bi bi-person text-slate-400 text-sm"></i>
+                            </span>
+                            <input type="text" name="name" value="{{ old('name') }}"
+                                   placeholder="e.g. Mitchell Dennis"
+                                   class="w-full pl-10 pr-4 py-3 bg-white border-2 border-slate-200 rounded-xl
+                                          text-sm text-[#0a1929] font-medium placeholder-slate-400
+                                          focus:outline-none focus:border-[#102a43] focus:ring-4 focus:ring-[#102a43]/10
+                                          transition-all @error('name') border-red-300 @enderror" required>
+                        </div>
+                        @error('name') <p class="mt-1 text-xs text-red-600 font-medium">{{ $message }}</p> @enderror
                     </div>
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label fw-semibold">Phone Number</label>
-                        <input type="tel" name="phone" 
-                               class="form-control @error('phone') is-invalid @enderror" 
-                               placeholder="0712 345 678" 
-                               value="{{ old('phone') }}" required>
-                        @error('phone')
-                            <div class="invalid-feedback">{{ $message }}</div>
-                        @enderror
+
+                    {{-- Email + Phone --}}
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-bold text-[#102a43] uppercase tracking-wider mb-1.5">
+                                Email <span class="text-red-500">*</span>
+                            </label>
+                            <div class="relative">
+                                <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+                                    <i class="bi bi-envelope text-slate-400 text-sm"></i>
+                                </span>
+                                <input type="email" name="email" value="{{ old('email') }}"
+                                       placeholder="name@company.com"
+                                       class="w-full pl-10 pr-4 py-3 bg-white border-2 border-slate-200 rounded-xl
+                                              text-sm text-[#0a1929] font-medium placeholder-slate-400
+                                              focus:outline-none focus:border-[#102a43] focus:ring-4 focus:ring-[#102a43]/10
+                                              transition-all @error('email') border-red-300 @enderror" required>
+                            </div>
+                            @error('email') <p class="mt-1 text-xs text-red-600 font-medium">{{ $message }}</p> @enderror
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-[#102a43] uppercase tracking-wider mb-1.5">
+                                Phone <span class="text-red-500">*</span>
+                            </label>
+                            <div class="relative">
+                                <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+                                    <i class="bi bi-telephone text-slate-400 text-sm"></i>
+                                </span>
+                                <input type="tel" name="phone" value="{{ old('phone') }}"
+                                       placeholder="0712 345 678"
+                                       class="w-full pl-10 pr-4 py-3 bg-white border-2 border-slate-200 rounded-xl
+                                              text-sm text-[#0a1929] font-medium placeholder-slate-400
+                                              focus:outline-none focus:border-[#102a43] focus:ring-4 focus:ring-[#102a43]/10
+                                              transition-all @error('phone') border-red-300 @enderror" required>
+                            </div>
+                            @error('phone') <p class="mt-1 text-xs text-red-600 font-medium">{{ $message }}</p> @enderror
+                        </div>
                     </div>
-                </div>
 
-                <div class="mb-3">
-                    <label class="form-label fw-semibold">Account Role</label>
-                    <select name="role" class="form-select @error('role') is-invalid @enderror" required>
-                        <option value="" selected disabled>Select a role...</option>
-                        <option value="host" {{ old('role') == 'host' ? 'selected' : '' }}>Host / Resident</option>
-                        <option value="guard" {{ old('role') == 'guard' ? 'selected' : '' }}>Security Guard</option>
-                        <option value="admin" {{ old('role') == 'admin' ? 'selected' : '' }}>Administrator</option>
-                    </select>
-                    @error('role')
-                        <div class="invalid-feedback">{{ $message }}</div>
-                    @enderror
-                </div>
-
-                <div class="row">
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label fw-semibold">Password</label>
-                        <div class="input-group">
-                            <input type="password" name="password" id="password"
-                                   class="form-control @error('password') is-invalid @enderror" 
-                                   required>
-                            <span class="input-group-text" onclick="togglePassword('password')">
-                                <i class="bi bi-eye" id="toggleIcon"></i>
+                    {{-- Role --}}
+                    <div>
+                        <label class="block text-xs font-bold text-[#102a43] uppercase tracking-wider mb-1.5">
+                            Account Role <span class="text-red-500">*</span>
+                        </label>
+                        <div class="relative">
+                            <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+                                <i class="bi bi-shield-check text-slate-400 text-sm"></i>
+                            </span>
+                            <select name="role"
+                                    class="w-full pl-10 pr-8 py-3 bg-white border-2 border-slate-200 rounded-xl
+                                           text-sm text-[#0a1929] font-medium appearance-none
+                                           focus:outline-none focus:border-[#102a43] focus:ring-4 focus:ring-[#102a43]/10
+                                           transition-all @error('role') border-red-300 @enderror" required>
+                                <option value="" disabled selected>Select a role...</option>
+                                <option value="host"  {{ old('role')=='host'  ? 'selected':'' }}>Host / Resident</option>
+                                <option value="guard" {{ old('role')=='guard' ? 'selected':'' }}>Security Guard</option>
+                                <option value="admin" {{ old('role')=='admin' ? 'selected':'' }}>Administrator</option>
+                            </select>
+                            <span class="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none">
+                                <i class="bi bi-chevron-down text-slate-400 text-xs"></i>
                             </span>
                         </div>
-                        @error('password')
-                            <div class="text-danger small mt-1">{{ $message }}</div>
-                        @enderror
+                        @error('role') <p class="mt-1 text-xs text-red-600 font-medium">{{ $message }}</p> @enderror
                     </div>
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label fw-semibold">Confirm Password</label>
-                        <input type="password" name="password_confirmation" class="form-control" required>
-                    </div>
-                </div>
 
-                <div class="mt-4 pt-2">
-                    <button type="submit" class="btn btn-primary w-100 mb-2 shadow-sm" id="submitBtn">
-                        <i class="bi bi-check2-circle me-2"></i> REGISTER ACCOUNT
-                    </button>
-                    <a href="{{ route('admin.users_index') }}" class="btn btn-link w-100 text-muted text-decoration-none small">
-                        Cancel and return to list
-                    </a>
-                </div>
-            </form>
+                    {{-- Password + Confirm --}}
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-bold text-[#102a43] uppercase tracking-wider mb-1.5">
+                                Password <span class="text-red-500">*</span>
+                            </label>
+                            <div class="relative">
+                                <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+                                    <i class="bi bi-key text-slate-400 text-sm"></i>
+                                </span>
+                                <input type="password" id="password" name="password"
+                                       class="w-full pl-10 pr-10 py-3 bg-white border-2 border-slate-200 rounded-xl
+                                              text-sm text-[#0a1929] font-medium
+                                              focus:outline-none focus:border-[#102a43] focus:ring-4 focus:ring-[#102a43]/10
+                                              transition-all @error('password') border-red-300 @enderror" required>
+                                <button type="button" onclick="togglePwd('password','eyeIcon1')"
+                                        class="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-600">
+                                    <i class="bi bi-eye text-sm" id="eyeIcon1"></i>
+                                </button>
+                            </div>
+                            @error('password') <p class="mt-1 text-xs text-red-600 font-medium">{{ $message }}</p> @enderror
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-[#102a43] uppercase tracking-wider mb-1.5">
+                                Confirm Password <span class="text-red-500">*</span>
+                            </label>
+                            <div class="relative">
+                                <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+                                    <i class="bi bi-key text-slate-400 text-sm"></i>
+                                </span>
+                                <input type="password" id="passwordConfirm" name="password_confirmation"
+                                       class="w-full pl-10 pr-10 py-3 bg-white border-2 border-slate-200 rounded-xl
+                                              text-sm text-[#0a1929] font-medium
+                                              focus:outline-none focus:border-[#102a43] focus:ring-4 focus:ring-[#102a43]/10
+                                              transition-all" required>
+                                <button type="button" onclick="togglePwd('passwordConfirm','eyeIcon2')"
+                                        class="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-600">
+                                    <i class="bi bi-eye text-sm" id="eyeIcon2"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    {{-- Actions --}}
+                    <div class="flex items-center justify-between pt-2 border-t border-slate-100">
+                        <a href="{{ route('admin.users_index') }}"
+                           class="text-sm text-slate-500 font-medium hover:text-[#102a43] transition-colors">
+                            ← Cancel
+                        </a>
+                        <button type="submit" id="submitBtn"
+                                class="inline-flex items-center gap-2 px-6 py-2.5 bg-[#102a43] hover:bg-[#0a1929]
+                                       text-white text-sm font-bold rounded-xl transition-all
+                                       focus:outline-none focus:ring-4 focus:ring-[#102a43]/30 active:scale-[0.99]">
+                            <i class="bi bi-check-circle-fill text-[#0ea5e9]"></i>
+                            Register Account
+                        </button>
+                    </div>
+
+                </form>
+            </div>
         </div>
     </div>
 </div>
+@endsection
 
+@push('scripts')
 <script>
-    // Password visibility toggle
-    function togglePassword(id) {
-        const passwordInput = document.getElementById(id);
-        const icon = document.getElementById('toggleIcon');
-        
-        if (passwordInput.type === 'password') {
-            passwordInput.type = 'text';
-            icon.classList.replace('bi-eye', 'bi-eye-slash');
-        } else {
-            passwordInput.type = 'password';
-            icon.classList.replace('bi-eye-slash', 'bi-eye');
-        }
-    }
-
-    // Loading state for form submission
-    document.getElementById('userForm').addEventListener('submit', function() {
-        const btn = document.getElementById('submitBtn');
-        btn.disabled = true;
-        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Processing...';
-    });
+function togglePwd(id, iconId) {
+    const i = document.getElementById(id);
+    const icon = document.getElementById(iconId);
+    i.type = i.type === 'password' ? 'text' : 'password';
+    icon.className = i.type === 'password' ? 'bi bi-eye text-sm' : 'bi bi-eye-slash text-sm';
+}
+document.getElementById('userForm').addEventListener('submit', function() {
+    const btn = document.getElementById('submitBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="bi bi-hourglass-split animate-spin"></i> Processing...';
+});
 </script>
-
-</body>
-</html>
+@endpush

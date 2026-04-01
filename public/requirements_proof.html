@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Smart VMS - Proof of Functional Requirements</title>
+<style>
+  body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; max-width: 800px; margin: 0 auto; padding: 40px; color: #333; background: #f8fafc; }
+  .document { background: white; padding: 50px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+  h1 { color: #0f172a; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; margin-top: 0; }
+  h3 { color: #0369a1; margin-top: 30px; margin-bottom: 10px; }
+  blockquote { border-left: 4px solid #cbd5e1; margin: 0; padding-left: 15px; color: #475569; font-style: italic; background: #f1f5f9; padding: 10px 15px; border-radius: 0 4px 4px 0; }
+  ul { margin-top: 10px; }
+  li { margin-bottom: 10px; }
+  code { background: #f1f5f9; padding: 3px 6px; border-radius: 4px; font-family: Consolas, monospace; font-size: 0.9em; color: #be123c; }
+  .btn { display: inline-block; padding: 12px 24px; background: #0284c7; color: white; text-decoration: none; border-radius: 8px; font-weight: bold; margin-bottom: 20px; cursor: pointer; border: none; font-size: 16px; width: 100%; text-align: center; }
+  .btn:hover { background: #0369a1; }
+  .print-header { display: none; }
+  @media print {
+    body { background: white; padding: 0; }
+    .document { box-shadow: none; padding: 0; }
+    .no-print { display: none !important; }
+    .print-header { display: block; text-transform: uppercase; font-size: 12px; color: #64748b; margin-bottom: 30px; border-bottom: 1px solid #ccc; padding-bottom: 5px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="no-print" style="margin-bottom: 20px;">
+  <button class="btn" onclick="window.print()">🖨️ Save as PDF</button>
+  <p style="text-align: center; font-size: 13px; color: #64748b; margin-top: 5px;"><em>When the window opens, select "Save as PDF" as the destination printer.</em></p>
+</div>
+
+<div class="document">
+  <div class="print-header">Smart Visitor Management System — Appendix Document</div>
+  
+  <h1>Proof of Functional Requirements</h1>
+  <p>This document maps the theoretical requirements from section 4.2.1 directly to the concrete system architecture and codebase.</p>
+
+  <h3>1. Secure Authentication & Role-Based Access</h3>
+  <blockquote>"secure authentication mechanism that allows different categories of users... based on their roles."</blockquote>
+  <ul>
+    <li><strong>Proof of Implementation:</strong> The system utilizes Laravel Breeze for secure, cryptographically hashed passwords. Role-Based Access Control (RBAC) is achieved through a custom <code>role</code> column on the <code>users</code> table. The application uses server-side middleware to restrict routes (e.g., a Guard returning a 403 Forbidden error if attempting to access Admin analytics).</li>
+  </ul>
+
+  <h3>2. Digital Visitor Registration</h3>
+  <blockquote>"registration of visitors by capturing essential details such as name, contact information, purpose of visit..."</blockquote>
+  <ul>
+    <li><strong>Proof of Implementation:</strong> Handled entirely by the <code>VisitorRegistrationForm.php</code> Livewire component. The system captures standard text data and utilizes an HTML5 Canvas to capture encrypted Base64 digital signatures, eliminating paper-based loopholes.</li>
+  </ul>
+
+  <h3>3. Unique QR Code Generation</h3>
+  <blockquote>"generates unique QR codes for each visitor, which are used for quick identification..."</blockquote>
+  <ul>
+    <li><strong>Proof of Implementation:</strong> Validated. Upon successful form submission, the system routes the user to <code>registration_success.blade.php</code>, where it leverages the <code>qrcode.min.js</code> library to instantly generate a scannable 2D barcode tied strictly to the visitor's unique database primary key ID.</li>
+  </ul>
+
+  <h3>4. Automated SMS Notifications</h3>
+  <blockquote>"automatically sends an SMS notification to the host, allowing them to approve or reject..."</blockquote>
+  <ul>
+    <li><strong>Proof of Implementation:</strong> Integrated natively with the <strong>AfricasTalking SMS API</strong>. Upon creation of a new database entry, an asynchronous HTTP POST request is triggered in the backend controller, dispatching a localized text message to the host containing dynamic approval/rejection links.</li>
+  </ul>
+
+  <h3>5. Timestamps & Audit Trail</h3>
+  <blockquote>"records the entry and exit time of each visitor, thereby maintaining a complete audit trail."</blockquote>
+  <ul>
+    <li><strong>Proof of Implementation:</strong> The database table was engineered with dedicated <code>checked_in_at</code> and <code>checked_out_at</code> timestamps. Furthermore, an independent, immutable <code>AuditLog</code> table tracks every security action (Check-Ins, Syncs, Approvals), associating the exact User and IP Address to the log.</li>
+  </ul>
+
+  <h3>6. Visitor Categorization</h3>
+  <blockquote>"supports visitor categorization, allowing differentiation between guests and service providers..."</blockquote>
+  <ul>
+    <li><strong>Proof of Implementation:</strong> The Livewire registration component actively listens to the <code>type</code> category field. If a visitor is categorized as a "Minor" or specific external contractor, the Document Object Model (DOM) dynamically adjusts to surface mandatory secondary fields (e.g., Guardian Name), enforcing categorization rules prior to submission.</li>
+  </ul>
+
+  <h3>7. Real-Time Monitoring & Reporting</h3>
+  <blockquote>"provides real-time monitoring of visitors within the premises and generates detailed reports..."</blockquote>
+  <ul>
+    <li><strong>Proof of Implementation:</strong> The Guard and Admin Dashboards utilize asynchronous background updates to feed real-time analytics graphs. The System Security Audit Log views can be date-filtered and exported directly to PDF for management review.</li>
+  </ul>
+
+  <h3>8. Data Protection Act (DPA) Retention</h3>
+  <blockquote>"incorporates mechanisms for automatic data retention and deletion."</blockquote>
+  <ul>
+    <li><strong>Proof of Implementation:</strong> System configured for legal compliance by extending Laravel's <code>Prunable</code> trait onto the <code>Visitor</code> Eloquent model. The system executes a cron job utilizing the PHP artisan kernel at <code>00:00</code> (midnight) daily, automatically hard-deleting all visitor logs older than 90 days without human intervention.</li>
+  </ul>
+
+  <h3>9. Offline Data Capture Resilience</h3>
+  <blockquote>"supports offline data capture, ensuring continuity of operations even when internet connectivity is unavailable."</blockquote>
+  <ul>
+    <li><strong>Proof of Implementation:</strong> Achieved. The registration interface is built as a complete <strong>Progressive Web App (PWA)</strong>. It registers a local Service Worker (<code>sw.js</code>) which intercepts failed internet submissions, stores the complete encrypted registration object into the browser's persistent <strong>IndexedDB</strong>, and auto-dispatches a Background Sync payload to the server upon network restoration.</li>
+  </ul>
+</div>
+
+</body>
+</html>

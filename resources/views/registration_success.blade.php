@@ -5,8 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Registration Successful | Smart VMS</title>
     
+    @php
+        // Normalize 'checked_in' from the DB to act as 'pending' for this view
+        $currentStatus = strtolower($visitor->status);
+        $isPending = in_array($currentStatus, ['pending', 'checked_in']);
+    @endphp
+
     {{-- Auto-refresh every 5 seconds if status is pending --}}
-    @if(strtolower($visitor->status) == 'pending')
+    @if($isPending)
         <meta http-equiv="refresh" content="5">
     @endif
     
@@ -22,6 +28,7 @@
         .info-value { color: #333; font-weight: 600; font-size: 0.95rem; }
         .signature-display { max-width: 140px; height: auto; border-bottom: 1px solid #333; padding-bottom: 5px; }
         
+        /* Status Badge Colors */
         .status-badge-pending { background-color: #ffc107; color: #000; animation: pulse 1.5s infinite; }
         .status-badge-approved { background-color: #198754; color: #fff; }
         .status-badge-rejected { background-color: #dc3545; color: #fff; }
@@ -33,7 +40,12 @@
             100% { transform: scale(1); }
         }
 
-        @media print { .no-print { display: none; } .pass-card { margin: 0; box-shadow: none; } }
+        /* Fix backgrounds not printing */
+        @media print { 
+            body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .no-print { display: none !important; } 
+            .pass-card { margin: 0; box-shadow: none !important; border: 1px solid #ccc; } 
+        }
     </style>
 </head>
 <body>
@@ -53,22 +65,28 @@
                 <h3 class="text-uppercase mb-1 fw-bold">{{ $visitor->full_name }}</h3>
                 
                 @php
-                    $currentStatus = strtolower($visitor->status);
                     $badgeClass = 'status-badge-pending';
-                    if($currentStatus == 'approved') $badgeClass = 'status-badge-approved';
-                    if($currentStatus == 'rejected') $badgeClass = 'status-badge-rejected';
-                    if($currentStatus == 'inside') $badgeClass = 'status-badge-inside';
+                    $displayStatus = 'Pending Approval';
+                    
+                    if($currentStatus == 'approved') {
+                        $badgeClass = 'status-badge-approved';
+                        $displayStatus = 'Approved';
+                    } elseif($currentStatus == 'rejected') {
+                        $badgeClass = 'status-badge-rejected';
+                        $displayStatus = 'Rejected';
+                    } elseif($currentStatus == 'inside') {
+                        $badgeClass = 'status-badge-inside';
+                        $displayStatus = 'Checked In (Inside)';
+                    }
 
-                    // Formatting Check-in Time
-                    $checkInTime = $visitor->check_in;
-                    $displayTime = is_numeric($checkInTime) ? date('h:i A', $checkInTime) : $checkInTime;
+                    $displayTime = $visitor->created_at->timezone('Africa/Nairobi')->format('h:i A');
                 @endphp
                 
                 <span class="badge {{ $badgeClass }} px-4 py-2 text-uppercase mb-3" style="font-size: 1rem;">
-                    {{ $visitor->status }}
+                    {{ $displayStatus }}
                 </span>
 
-                @if($currentStatus == 'pending')
+                @if($isPending)
                     <div class="alert alert-warning py-2 no-print">
                         <small class="fw-bold">Awaiting host approval...</small>
                         <div class="spinner-border spinner-border-sm ms-2" role="status"></div>
@@ -94,20 +112,22 @@
                     </div>
                     <div class="info-row">
                         <span class="info-label">Date & Time:</span>
-                        <span class="info-value">{{ $visitor->created_at->format('d M, Y') }} | {{ $displayTime }}</span>
+                        <span class="info-value">{{ $visitor->created_at->timezone('Africa/Nairobi')->format('d M, Y') }} | {{ $displayTime }}</span>
                     </div>
+                    
                     @if($currentStatus == 'approved' || $currentStatus == 'inside')
                     <div class="info-row">
                         <span class="info-label text-danger">Valid Until:</span>
-                        <span class="info-value text-danger">{{ $visitor->created_at->addHours(4)->format('h:i A') }}</span>
+                        <span class="info-value text-danger">{{ $visitor->created_at->timezone('Africa/Nairobi')->addHours(4)->format('h:i A') }}</span>
                     </div>
                     @endif
                 </div>
 
-                @if($visitor->signature)
+                {{-- FIXED: Safely fetch the signature from Laravel Storage --}}
+                @if($visitor->signature_path)
                 <div class="mt-4">
                     <p class="info-label mb-1">E-Signature</p>
-                    <img src="{{ $visitor->signature }}" alt="Signature" class="signature-display">
+                    <img src="{{ asset('storage/' . $visitor->signature_path) }}" alt="Signature" class="signature-display">
                 </div>
                 @endif
             </div>
@@ -125,9 +145,9 @@
     </div>
 
     <script>
-        // Generate QR Code with verification link or data
+        // Generate QR Code
         new QRCode(document.getElementById("qrcode"), {
-            text: "{{ route('visitor.pass', ['id' => $visitor->id]) }}",
+            text: "VMS-PASS-{{ $visitor->id }}",
             width: 180,
             height: 180,
             colorDark : "#000000",
@@ -136,7 +156,7 @@
         });
 
         // Backup JavaScript refresh for Pending status
-        @if(strtolower($visitor->status) == 'pending')
+        @if($isPending)
             setTimeout(function(){
                 window.location.reload();
             }, 5000);
